@@ -8,7 +8,10 @@ deploy_user=${DEPLOY_USER:-root}
 deploy_path=/opt/zibs
 deploy_all=${DEPLOY_ALL:-0}
 admin_token=${ADMIN_TOKEN:?Set ADMIN_TOKEN without writing it to a file in this repository.}
-grafana_admin_password=${GRAFANA_ADMIN_PASSWORD:-}
+# Required even for app-only deploys: compose interpolates the grafana
+# service's ${GRAFANA_ADMIN_PASSWORD:?} at parse time regardless of the
+# services being started, and the .env written below must stay complete.
+grafana_admin_password=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the deployment environment.}
 
 if [[ $admin_token == *$'\n'* ]]; then
 	printf '%s\n' 'ADMIN_TOKEN must not contain a newline.' >&2
@@ -17,11 +20,6 @@ fi
 
 if [[ $deploy_all != 0 && $deploy_all != 1 ]]; then
 	printf '%s\n' 'DEPLOY_ALL must be either 0 or 1.' >&2
-	exit 1
-fi
-
-if [[ $deploy_all == 1 && -z $grafana_admin_password ]]; then
-	printf '%s\n' 'Set GRAFANA_ADMIN_PASSWORD when deploying the production profile.' >&2
 	exit 1
 fi
 
@@ -54,13 +52,10 @@ rsync -az \
 	"$project_dir/" "$target:$deploy_path/"
 
 # Secrets travel over SSH and are written as a mode-0600 file on the VM.
-if [[ $deploy_all == 1 ]]; then
-	printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\n' "$admin_token" "$grafana_admin_password" | \
-		ssh "${ssh_options[@]}" "$target" "umask 077; cat > $deploy_path/.env"
-else
-	printf 'ADMIN_TOKEN=%s\n' "$admin_token" | \
+# Both are always written: an app-only deploy must not clobber the Grafana
+# password out of .env, and compose needs it defined even to start just zibs.
+printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\n' "$admin_token" "$grafana_admin_password" | \
 	ssh "${ssh_options[@]}" "$target" "umask 077; cat > $deploy_path/.env"
-fi
 
 if [[ $deploy_all == 1 ]]; then
 	ssh "${ssh_options[@]}" "$target" \
