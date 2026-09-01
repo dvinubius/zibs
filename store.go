@@ -23,6 +23,13 @@ const (
 	shortCodeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	shortCodeLength   = 8
 	defaultLinkTTL    = 90 * 24 * time.Hour
+
+	// Token secrets are copied by hand from an email, so the alphabet is
+	// lowercase-only, drops the 0/o and 1/l lookalikes, and contains no
+	// characters that break double-click selection. 32 chars × 12 ≈ 60 bits,
+	// ample for a use-bounded, revocable token (ADR 0002).
+	creationTokenAlphabet = "abcdefghijkmnpqrstuvwxyz23456789"
+	creationTokenLength   = 12
 )
 
 type Link struct {
@@ -61,10 +68,14 @@ func newLinkStore(db *sql.DB, metrics *metrics) *linkStore {
 }
 
 func generateShortCode() (string, error) {
-	code := make([]byte, shortCodeLength)
-	const validByteLimit = 256 - (256 % len(shortCodeAlphabet))
+	return randomString(shortCodeAlphabet, shortCodeLength)
+}
 
-	for i := range code {
+func randomString(alphabet string, length int) (string, error) {
+	out := make([]byte, length)
+	validByteLimit := 256 - (256 % len(alphabet))
+
+	for i := range out {
 		for {
 			var randomByte [1]byte
 			if _, err := rand.Read(randomByte[:]); err != nil {
@@ -74,12 +85,12 @@ func generateShortCode() (string, error) {
 				continue
 			}
 
-			code[i] = shortCodeAlphabet[int(randomByte[0])%len(shortCodeAlphabet)]
+			out[i] = alphabet[int(randomByte[0])%len(alphabet)]
 			break
 		}
 	}
 
-	return string(code), nil
+	return string(out), nil
 }
 
 func generateCreationToken() (string, string, error) {
@@ -87,13 +98,12 @@ func generateCreationToken() (string, string, error) {
 	if _, err := rand.Read(idBytes); err != nil {
 		return "", "", fmt.Errorf("generate token ID: %w", err)
 	}
-	secretBytes := make([]byte, 32)
-	if _, err := rand.Read(secretBytes); err != nil {
+	secret, err := randomString(creationTokenAlphabet, creationTokenLength)
+	if err != nil {
 		return "", "", fmt.Errorf("generate token secret: %w", err)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(idBytes),
-		"ust_" + base64.RawURLEncoding.EncodeToString(secretBytes), nil
+	return base64.RawURLEncoding.EncodeToString(idBytes), "zib_" + secret, nil
 }
 
 func (s *linkStore) create(destinationURL string) (link Link, err error) {

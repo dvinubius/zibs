@@ -212,8 +212,11 @@ func TestAdminCanIssueCreationToken(t *testing.T) {
 	if response.ID == "" {
 		t.Error("token ID is empty")
 	}
-	if !strings.HasPrefix(response.Token, "ust_") {
-		t.Errorf("token = %q, want ust_ prefix", response.Token)
+	if !strings.HasPrefix(response.Token, "zib_") {
+		t.Errorf("token = %q, want zib_ prefix", response.Token)
+	}
+	if len(response.Token) != len("zib_")+creationTokenLength {
+		t.Errorf("token length = %d, want %d", len(response.Token), len("zib_")+creationTokenLength)
 	}
 	if response.Label != "employer demo" || response.MaxUses != 2 {
 		t.Errorf("token metadata = %+v, want label and max uses from request", response.CreationToken)

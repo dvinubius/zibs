@@ -1,6 +1,6 @@
 # ADR 0002: Use cryptographic codes and bounded creation tokens
 
-**Status:** Accepted, amended 2026-08-30 (see [Amendment](#amendment-2026-08-30))
+**Status:** Accepted, amended 2026-08-30 and 2026-09-01 (see [Amendments](#amendment-2026-08-30))
 
 ## Context
 
@@ -80,3 +80,18 @@ benefit for this threat model. Tokens remain use-bounded (1 to 100 uses) and
 revocable, which keeps compromise bounded; the `ttlMinutes` field and the
 `expires_at` column on `creation_tokens` were removed. The fixed link expiry
 was also lengthened from 30 to 90 days.
+
+## Amendment 2026-09-01
+
+Token secrets are hand-friendly instead of maximum-entropy. Users receive
+tokens by email and copy them manually, so the secret is now 12 characters
+from a 32-character alphabet (lowercase letters and digits, excluding the
+`0`/`o` and `1`/`l` lookalikes) instead of 43 characters of base64url. The
+new alphabet contains no `-`, so a double-click selects the whole token.
+The prefix changed from `ust_` (predating the rebrand) to `zib_`.
+
+At ~60 bits of entropy the secret remains far beyond online guessing for a
+use-bounded, revocable token; this trades headroom that served no threat in
+this model for a much better copy-from-email experience. Storage is
+unchanged (SHA-256 hash only), so previously issued `ust_` tokens continue
+to validate.
