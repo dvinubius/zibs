@@ -1,0 +1,60 @@
+{
+  "uid": "zibs-public-metrics",
+  "title": "zibs public metrics",
+  "description": "Aggregated service metrics only. Do not add logs, dashboard variables, annotations, raw paths, short codes, or destination URLs.",
+  "tags": ["zibs", "public"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "time": {"from": "now-24h", "to": "now"},
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"refId": "A", "expr": "sum(rate(zibs_http_requests_total[5m]))", "legendFormat": "requests / second"}]
+    },
+    {
+      "id": 2,
+      "title": "Responses by status",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"refId": "A", "expr": "sum by (status) (rate(zibs_http_requests_total[5m]))", "legendFormat": "HTTP {{status}}"}]
+    },
+    {
+      "id": 3,
+      "title": "Request latency",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p99"}
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Redirects in selected period",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
+      "targets": [{"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\", result=\"success\"}[$__range]))", "legendFormat": "redirects"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "auto", "textMode": "auto"}
+    },
+    {
+      "id": 5,
+      "title": "Service up",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
+      "targets": [{"refId": "A", "expr": "up{job=\"zibs\"}", "legendFormat": "zibs"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "auto", "textMode": "auto"}
+    }
+  ]
+}

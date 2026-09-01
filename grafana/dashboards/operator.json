@@ -1,0 +1,72 @@
+{
+  "uid": "zibs-operator",
+  "title": "zibs operator overview",
+  "tags": ["zibs", "operator"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate by route and status",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"refId": "A", "expr": "sum by (route, status) (rate(zibs_http_requests_total[5m]))", "legendFormat": "{{route}} {{status}}"}]
+    },
+    {
+      "id": 2,
+      "title": "Request latency",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95"},
+        {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p99"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Link operations",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"refId": "A", "expr": "sum by (operation, result) (rate(zibs_link_operations_total[5m]))", "legendFormat": "{{operation}} {{result}}"}]
+    },
+    {
+      "id": 4,
+      "title": "Expiry cleanup",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"refId": "A", "expr": "rate(zibs_expired_links_deleted_total[5m])", "legendFormat": "deleted / second"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, result) (rate(zibs_expiry_cleanup_duration_seconds_bucket[1h])))", "legendFormat": "p95 {{result}}"}
+      ]
+    },
+    {
+      "id": 5,
+      "title": "SQLite connections",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {"refId": "A", "expr": "zibs_db_open_connections", "legendFormat": "open"},
+        {"refId": "B", "expr": "zibs_db_in_use_connections", "legendFormat": "in use"},
+        {"refId": "C", "expr": "zibs_db_idle_connections", "legendFormat": "idle"}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Application logs",
+      "type": "logs",
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 24},
+      "targets": [{"refId": "A", "expr": "{service=\"zibs\"}", "queryType": "range"}],
+      "options": {"showTime": true, "wrapLogMessage": true, "sortOrder": "Descending"}
+    }
+  ]
+}

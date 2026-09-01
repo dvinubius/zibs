@@ -1,0 +1,614 @@
+/* zibs frontend — Dinu Barbu brand system.
+   Tokens copied from design-system/tokens; square corners, no shadows,
+   accent dosage: wordmark brackets, one primary CTA, one line in the terminal.
+   Themes follow the design system: semantic aliases on :root (light),
+   overridden under [data-theme="dark"]. Pair rule: Ember on light,
+   Ember Light on dark — never the reverse. */
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("fonts/SpaceGrotesk-latin.woff2") format('woff2');
+}
+@font-face {
+  font-family: 'Azeret Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/AzeretMono-latin.woff2") format('woff2');
+}
+
+:root {
+  --ink: #141414;
+  --paper: #FAFAFA;
+  --stone: #6E6E6E;
+  --muted-on-dark: #9A9A9A;
+  --muted-strong: #B5B5B5;
+  --hairline-on-light: #E6E6E6;
+  --hairline-on-dark: #2C2C2C;
+  --panel: #1C1C1C;
+  --inline-code-on-light: #EDEDED;
+  --inline-code-on-dark: #262626;
+  --shade-on-light: #F0F0F0;
+  --shade-on-dark: #1B1B1B;
+  --ember: #A8500F;
+  --ember-light: #DE8A42;
+  --ember-hover: #8A420C;
+  --brick: #A03028;       /* error red — earthy sibling of Ember */
+  --brick-light: #E0756A; /* error red on dark surfaces, pairs like Ember Light */
+
+  --font-sans: 'Space Grotesk', sans-serif;
+  --font-mono: 'Azeret Mono', monospace;
+  --track-heading: -0.022em;
+  --track-wordmark: -0.018em;
+
+  /* Semantic aliases — light theme default */
+  --surface-page: var(--paper);
+  --surface-card: var(--inline-code-on-light);
+  --surface-shade: var(--shade-on-light);
+  --surface-code: var(--inline-code-on-light); /* terminal matches the form card it replaces */
+  --code-border: transparent;
+  --terminal-muted: var(--stone);
+  --terminal-link: var(--ember);
+  --terminal-button-text: var(--ink);
+  --terminal-button-border: var(--muted-strong);
+  --terminal-button-border-hover: var(--stone);
+  --terminal-focus: var(--ink);
+  --input-bg: var(--paper);
+  --text-body: var(--ink);
+  --text-muted: var(--stone);
+  --accent: var(--ember);
+  --accent-on-hover: var(--ember-hover);
+  --button-fill: var(--ember);
+  --button-text: var(--paper);
+  --button-hover: var(--ember-hover);
+  --hairline: var(--hairline-on-light);
+  --error-text: var(--brick);
+}
+
+[data-theme="dark"] {
+  --surface-page: var(--ink);
+  --surface-card: var(--inline-code-on-dark);
+  --surface-shade: var(--shade-on-dark);
+  --surface-code: var(--panel);     /* code on Panel, with a hairline border */
+  --code-border: var(--hairline-on-dark);
+  --terminal-muted: var(--muted-on-dark);
+  --terminal-link: var(--ember-light);
+  --terminal-button-text: var(--paper);
+  --terminal-button-border: var(--stone);
+  --terminal-button-border-hover: var(--muted-strong);
+  --terminal-focus: var(--paper);
+  --input-bg: var(--ink);
+  --text-body: var(--paper);
+  --text-muted: var(--muted-on-dark);
+  --accent: var(--ember-light);
+  --accent-on-hover: var(--ember-light); /* no darker hover defined on dark */
+  --button-fill: var(--ember-light);
+  --button-text: var(--ink);
+  --button-hover: color-mix(in srgb, var(--ember-light) 85%, var(--ink));
+  --hairline: var(--hairline-on-dark);
+  --error-text: var(--brick-light);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-header,
+main,
+.colophon,
+.site-footer {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+
+.site-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 32px;
+}
+
+/* App wordmark — type only, ember-dot period is the accent moment */
+
+.app-wordmark {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: var(--track-wordmark);
+}
+
+.app-wordmark .accent-dot {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.about-link {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.about-link:hover { color: var(--text-body); }
+
+.theme-toggle {
+  display: inline-flex;
+  align-self: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.theme-toggle:hover { color: var(--text-body); }
+
+.theme-toggle svg {
+  width: 22.4px;
+  height: 22.4px;
+}
+
+.theme-toggle .icon-sun { display: none; }
+
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+
+.wordmark {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: var(--track-wordmark);
+  white-space: nowrap;
+}
+
+.wordmark .bracket {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Main column */
+
+main { flex: 1; padding-bottom: 64px; }
+
+h1 {
+  margin: 72px 0 0;
+  font-size: clamp(36px, 8vw, 52px);
+  font-weight: 500;
+  letter-spacing: var(--track-heading);
+  line-height: 1.05;
+}
+
+.lede {
+  margin: 20px 0 0;
+  /* max-width: 52ch; */
+  font-size: 17px;
+}
+
+.lede a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.lede a:hover { color: var(--accent-on-hover); }
+
+/* Form card — flat neutral fill, square, no border, no shadow */
+
+#shorten-form {
+  margin-top: 36px;
+  background: var(--surface-card);
+  padding: 32px;
+}
+
+.field + .field { margin-top: 24px; }
+
+.field-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+input {
+  display: block;
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--text-body);
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  padding: 11px 12px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--text-body);
+}
+
+input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+/* Masks the token like a password field without being one, so browsers
+   don't offer to save it as a credential. */
+.input-masked { -webkit-text-security: disc; }
+
+.field-note {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Action row — error text on the left, button on the right. Under 500px it
+   stacks: error first (kept near the fields), then a full-width button. */
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.button-primary {
+  display: block;
+  flex: none;
+  margin-left: auto;
+  background: var(--button-fill);
+  color: var(--button-text);
+  border: none;
+  border-radius: 0;
+  padding: 12px 24px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 16ch;
+}
+
+.button-primary:hover { background: var(--button-hover); }
+
+.button-primary:disabled {
+  background: var(--text-muted);
+  cursor: default;
+}
+
+:is(button, input):focus-visible {
+  outline: 2px solid var(--text-body);
+  outline-offset: 2px;
+}
+
+/* Fade swap — form and result trade places; app.js reads the duration from
+   here. Kept even under prefers-reduced-motion: an opacity crossfade is the
+   recommended reduced-motion substitute, not motion itself. */
+
+#shorten-form,
+#result,
+.button-copy,
+.copy-confirm,
+.about-dialog {
+  transition: opacity 340ms ease;
+}
+
+.is-fading { opacity: 0; }
+
+/* Error — plain text inside the form card, carried by the Brick pair
+   (Brick on light, Brick Light on dark); never Ember-carried. */
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--error-text);
+}
+
+/* Result — theme-aware terminal: on light pages it takes the same neutral
+   card fill as the form it replaces (keeping the crossfade like-for-like);
+   on dark pages it sits on Panel with a hairline border. Interior colors
+   follow via the --terminal-* aliases; Ember on light, Ember Light on dark. */
+
+#result { margin-top: 36px; }
+
+.terminal {
+  background: var(--surface-code);
+  border: 1px solid var(--code-border);
+  padding: 24px 28px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.terminal p { margin: 0; }
+
+.terminal-prompt { color: var(--terminal-muted); }
+
+.terminal-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0;
+}
+
+.terminal-link {
+  color: var(--terminal-link);
+  font-size: 15px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.button-copy {
+  flex: none;
+  background: transparent;
+  color: var(--terminal-button-text);
+  border: 1px solid var(--terminal-button-border);
+  border-radius: 0;
+  padding: 10px 22px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  cursor: pointer;
+  width: 16ch;
+}
+
+.button-copy:hover { border-color: var(--terminal-button-border-hover); }
+
+.button-copy:focus-visible {
+  outline: 2px solid var(--terminal-focus);
+  outline-offset: 2px;
+}
+
+/* Confirmation label shown in the copy button's place — matches its type
+   and vertical footprint (padding + border) so the row doesn't shift. */
+
+.copy-confirm {
+  flex: none;
+  padding: 11px 22px;
+  font-size: 14px;
+  line-height: normal; /* match the button's UA line-height, not .terminal's 1.7 */
+  color: var(--terminal-muted);
+}
+
+.result-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Quiet way back to the form — mono, muted, no chrome */
+
+.button-again {
+  /* margin-top: 20px; */
+  margin-bottom: 20px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.button-again:hover { color: var(--text-body); }
+
+/* About dialog — brand card in the top layer: square, flat, no chrome.
+   Centered card on desktop; full-screen under the 500px breakpoint. */
+
+.about-dialog {
+  background: var(--surface-card);
+  color: var(--text-body);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  width: min(520px, calc(100vw - 48px));
+  overflow-y: auto;
+}
+
+.about-dialog::backdrop {
+  background: rgb(20 20 20 / 0.5); /* Ink-based scrim, both themes */
+  transition: opacity 340ms ease;
+}
+
+.about-dialog.is-fading::backdrop { opacity: 0; }
+
+.about-card { padding: 32px; }
+
+.about-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.about-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: var(--track-heading);
+}
+
+.about-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.about-close:hover { color: var(--text-body); }
+
+.about-lede {
+  margin: 16px 0 0;
+  font-size: 15px;
+}
+
+.faq-q {
+  margin: 24px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.faq-a {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.faq-a a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.faq-a a:hover { color: var(--accent-on-hover); }
+
+/* Colophon — project meta above the footer, framed by a hairline box
+   whose top border carries the label, fieldset-style. Muted mono links
+   that hover to body text, never accent. */
+
+.colophon {
+  position: relative;
+  width: calc(100% - 48px); /* box edges align with the text column */
+  max-width: 592px;
+  border: 1px solid var(--hairline);
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.colophon-label {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0 8px;
+  background: var(--surface-page);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.colophon-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+}
+
+.colophon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.colophon-link:hover { color: var(--text-body); }
+
+.colophon-icon { flex: none; }
+
+/* Footer */
+
+.site-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 20px;
+  padding-bottom: 32px;
+}
+
+/* Quiet link — body text, 1px accent bottom border, → */
+
+.footer-link {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-body);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
+}
+
+.footer-link:hover { color: var(--accent-on-hover); }
+
+@media (max-width: 500px) {
+  .lede {
+    margin-top: 16px;
+    font-size: 16px;
+  }
+
+  #shorten-form,
+  #result { margin-top: 32px; }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .button-primary {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .terminal-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .button-copy { width: 100%; }
+
+  /* Centered like the button label it swaps with */
+  .copy-confirm {
+    text-align: center;
+    padding: 11px 0;
+  }
+
+  .about-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+  }
+
+  /* Fill the full-screen dialog so empty space below the content is part
+     of the card, not backdrop-click territory. */
+  .about-card {
+    padding: 32px 24px;
+    min-height: 100%;
+  }
+
+}

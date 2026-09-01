@@ -1,0 +1,289 @@
+# Observability
+
+## Stack topology
+
+The full telemetry stack is private except for an explicitly shared,
+metrics-only Grafana dashboard. The application request path is separate from
+telemetry collection.
+
+```mermaid
+flowchart TB
+    browser[Browser]
+
+    subgraph host[Hetzner VM / Docker host]
+        subgraph compose[Docker Compose project]
+            caddy[Caddy<br/>TCP 80, 443<br/>UDP 443]
+            grafana[Grafana<br/>TCP 3000<br/>VM loopback only]
+            subgraph edge[app-edge Docker network]
+                caddyAppEdge[Caddy<br/>attachment]
+                zibs[zibs<br/>metrics: TCP 9091]
+                prometheus[Prometheus<br/>TCP 9090]
+                grafanaAppEdge["Grafana<br/>(attachment)"]
+            end
+            subgraph observability[observability Docker network — internal]
+                loki[Loki<br/>TCP 3100]
+                alloy[Alloy<br/>TCP 12345]
+                grafanaObservability["Grafana<br/>(attachment)"]
+            end
+            prometheusData[(prometheus-data<br/>metrics volume)]
+            lokiData[(loki-data<br/>14-day log volume)]
+            alloyData[(alloy-data<br/>read positions)]
+            grafanaData[(grafana-data<br/>Grafana state)]
+        end
+    end
+
+    browser ==>|Operator SSH tunnel<br/>to VM loopback :3000| grafana
+    browser ==>|HTTPS public shared-dashboard route| caddy
+    caddyAppEdge -->|reverse proxy the<br/>public Grafana dashboard| grafanaAppEdge
+    prometheus -->|scrape /metrics TCP 9091| zibs
+    prometheus -->|save metrics| prometheusData
+    alloy -->|Docker socket: zibs stdout only| zibs
+    alloy -->|push JSON logs| loki
+    alloy -->|save read positions| alloyData
+    loki -->|save logs| lokiData
+    caddy -.-|network attachment| caddyAppEdge
+    grafana -.-|network attachment| grafanaAppEdge
+    grafana -.-|network attachment| grafanaObservability
+    grafanaAppEdge -->|query metrics| prometheus
+    grafanaObservability -->|query logs| loki
+    grafana -->|persistent configuration and share state| grafanaData
+
+    classDef networkAttachment stroke-dasharray: 5 5;
+    class caddyAppEdge,grafanaAppEdge,grafanaObservability networkAttachment;
+```
+
+The Compose `app-edge` network connects zibs, Caddy, Prometheus, and Grafana.
+The internal-only `observability` network connects Alloy, Loki, and Grafana.
+Grafana joins both networks so it can query both data sources. Prometheus, Loki,
+Alloy, and zibs's metrics listener have no public host-port mappings. Grafana
+binds only to `127.0.0.1:3000` on the VM; operators use an SSH tunnel.
+
+### Port inventory
+
+| Port | Protocol | Where it is reachable | Purpose |
+|---|---|---|---|
+| 9091 | TCP | `app-edge` Docker network only | Prometheus metrics; neither host-published nor proxied |
+| 9090 | TCP | `app-edge` Docker network only | Prometheus UI and query API; not host-published |
+| 3100 | TCP | Internal `observability` Docker network only | Loki API; not host-published |
+| 12345 | TCP | Internal `observability` Docker network only | Alloy readiness endpoint; not host-published |
+| 3000 | TCP | VM loopback only | Private Grafana workspace; operators use an SSH tunnel |
+
+The application-path ports (80, 443, 8080) are inventoried in
+[Deployment architecture](deployment-architecture.md). The only telemetry
+reachable from the public internet is Grafana's externally shared
+public-metrics dashboard, proxied by Caddy on its narrow route.
+
+## Configuration inventory
+
+| Component | Repository configuration | Durable state | Key behavior |
+|---|---|---|---|
+| Prometheus | [`prometheus.yml`](../prometheus.yml) | `prometheus-data` | Scrapes `zibs:9091` every 30 seconds |
+| Alloy | [`config.alloy`](../config.alloy) | `alloy-data` | Discovers only Compose service `zibs`, preserves Docker JSON logs, pushes to Loki |
+| Loki | [`loki.yml`](../loki.yml) | `loki-data` | Filesystem TSDB with 14-day retention |
+| Grafana | [`grafana/provisioning/`](../grafana/provisioning/) and [`grafana/dashboards/`](../grafana/dashboards/) | `grafana-data` | Provisions Prometheus/Loki data sources plus private and shareable dashboards |
+| Stack wiring | [`compose.yaml`](../compose.yaml) | Named volumes above | Keeps telemetry services private and makes Grafana loopback-only |
+
+Alloy reads the Docker socket, which grants Docker-daemon-equivalent access.
+Treat the VM and Alloy configuration as trusted operational infrastructure.
+
+## Goals
+
+zibs uses direct Prometheus instrumentation for service behavior and JSON
+structured logs for request-level diagnosis. At this scale, tracing is not
+required: a request crosses only the Go process and its local SQLite database.
+
+The operational design keeps collection and full exploration private while
+allowing a deliberately limited public metrics showcase.
+
+## Instrumentation
+
+The service creates its own Prometheus registry rather than using the global
+registry. It registers Go runtime and process collectors, application metrics,
+and selected `database/sql` pool statistics.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `zibs_http_requests_total` | Counter | `route`, `method`, `status` | Completed application requests |
+| `zibs_http_request_duration_seconds` | Histogram | `route`, `method` | Application request latency |
+| `zibs_link_operations_total` | Counter | `operation`, `result` | Create, follow, and delete outcomes |
+| `zibs_db_operation_duration_seconds` | Histogram | `operation`, `result` | Database operation duration |
+| `zibs_expired_links_deleted_total` | Counter | none | Rows removed by expiry cleanup |
+| `zibs_expiry_cleanup_duration_seconds` | Histogram | `result` | Expiry-cleanup duration |
+| `zibs_db_open_connections` | Gauge | none | Current SQLite pool connections |
+| `zibs_db_in_use_connections` | Gauge | none | Connections currently in use |
+| `zibs_db_idle_connections` | Gauge | none | Idle connections |
+| `zibs_db_wait_count_total` | Counter | none | Pool wait count |
+| `zibs_db_wait_duration_seconds_total` | Counter | none | Total pool wait time |
+
+Durations use seconds and the histograms use small buckets appropriate to a
+local service. The `route` label is normalized (for example, `/{code}` and
+`/admin/links/{code}`), not the raw request path.
+
+Do not add a short code, destination URL, raw path, client IP, request ID, or
+error text as a Prometheus label. Those values are high-cardinality or may be
+sensitive. Keep them in the structured log body when needed for diagnosis.
+
+### Logs
+
+The production logger writes JSON to standard output. Application request
+records include method, path, status, and duration. Startup, shutdown, and
+expiry-cleanup events are also logged.
+
+The production Compose profile uses Grafana Alloy to collect only zibs's
+container stdout and send it to Loki. Alloy discovers the zibs service through
+the Docker socket, which grants it Docker-daemon-equivalent access; treat it as
+a trusted, private component. Loki and Alloy are attached only to the internal
+`observability` network and neither publishes a host port. Use a small fixed
+Loki label set:
+
+```text
+service=zibs
+environment=production
+container=zibs
+```
+
+Request-specific data remains JSON fields, not Loki labels. This preserves
+query usefulness without creating unbounded indexed label values. Loki stores
+these logs in its persistent `loki-data` volume for 14 days; Alloy stores its
+read positions in `alloy-data` so it can resume after a restart.
+
+## Metrics access boundary
+
+`GET /metrics` runs on a separate listener, `127.0.0.1:9091` by default. It
+uses the service's private registry and is not registered on the public
+application handler. `METRICS_ADDRESS` overrides that bind address; Compose
+sets it to `0.0.0.0:9091` so the Prometheus container can connect over the
+private Docker network.
+
+On a VM, Prometheus should scrape this localhost listener. In a container
+deployment, do not publish the metrics port to the host; permit it only on the
+private application/Prometheus network. Compose uses `expose` as documentation
+of the container port and has no host-port mapping for `9091`. The reverse
+proxy must not forward `/metrics` publicly.
+
+Prometheus scrape requests are not application requests. The metrics handler
+therefore does not use the application's request logging or HTTP-metrics
+middleware.
+
+## Dashboards and alerts
+
+The production Compose profile runs Grafana on `127.0.0.1:3000` of the VM.
+It has no public port mapping, disables anonymous access and user sign-up, and
+requires a separate `GRAFANA_ADMIN_PASSWORD`. Operators reach it over an SSH
+tunnel. Grafana connects to Prometheus through `app-edge` and Loki through the
+internal `observability` network; neither data source is reachable from the
+public internet.
+
+Grafana provisions both data sources and these dashboards from `grafana/` in
+the repository at startup:
+
+- **zibs operator overview** is private and includes request, latency, link
+  operation, expiry-cleanup, SQLite-pool panels, plus the Loki log panel
+  filtered to `service=zibs`.
+- **zibs public metrics** is a deliberately metrics-only dashboard. It has no
+  variables or annotations, and its queries return only request-rate and status
+  aggregates, latency percentiles, redirect totals, and the Prometheus `up`
+  signal.
+
+`grafana-data` persists Grafana's own SQLite database. It retains the
+administrator account, externally-shared-dashboard state when that feature is
+enabled, user preferences, alerting configuration, and any future data not
+defined by the provisioning files. The provisioned data sources and dashboards
+remain reproducible from Git, but are not a replacement for that runtime
+state.
+
+### Telemetry smoke test
+
+`scripts/telemetry-smoke-test.sh` runs on the VM after each full deployment and
+can be run manually from `/opt/zibs`. It sends a zibs health request, verifies
+that Prometheus reports `up{job="zibs"} = 1`, waits for a zibs log entry in
+Loki, checks Grafana's HTTP API and its provisioned Prometheus and Loki data
+sources, then verifies both provisioned dashboard UIDs. This is an integration
+check of the complete metrics-and-logs path, not merely a container liveness
+check.
+
+Initial alerts should cover application unavailability, sustained 5xx
+responses, failed expiry cleanup, failed backups, and disk-space pressure.
+
+## Public dashboard
+
+The public-metrics dashboard is served through the `zibs.app` Caddy host at
+`/public-dashboards/<shared-dashboard-token>`. Caddy proxies only the
+externally shared dashboard page, Grafana's anonymous shared-dashboard API, and
+its required public assets; it does not proxy the normal Grafana workspace or
+the general Grafana API. After reviewing its saved panels, enable **Anyone with
+the link** from the dashboard's **Share externally** drawer. Keep time-range
+selection and annotations disabled. Pause or revoke the share from that drawer
+whenever the dashboard changes or must be taken offline.
+Use Grafana's externally shared-dashboard mechanism rather than anonymous
+Viewer access to the Grafana workspace: the shared view can run only the
+dashboard's saved queries, while a workspace viewer could explore data more
+broadly.
+
+The public dashboard may include aggregated request rate, status proportions,
+latency percentiles, redirect totals, creation-authorization outcomes,
+database latency, and process health. It must not include:
+
+- raw Loki logs;
+- raw paths or live short codes;
+- destination URLs, tokens, request identifiers, or client information;
+- direct data-source access, Explore, or the broader Grafana workspace.
+
+Review every saved query before sharing, watch the query load generated by the
+public link, and retain the ability to pause or revoke the share. The full
+Grafana workspace, Prometheus, Loki, and metrics endpoint remain private.
+
+## Operator dashboard runbook
+
+### Open the private workspace
+
+Grafana is intentionally loopback-only on the VM. From an operator machine,
+create a tunnel and open the local address:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 root@<host>
+```
+
+Then visit `http://localhost:3000`, sign in with `GRAFANA_ADMIN_USER` (default
+`admin`) and `GRAFANA_ADMIN_PASSWORD`, and open **Zibs → zibs operator
+overview**. Do not expose port 3000 publicly or enable anonymous workspace
+access.
+
+### Normal operating checks
+
+Use the dashboard time range that covers the reported issue, then review:
+
+1. **Availability:** Prometheus `up` should be `1`; a missing target means the
+   scrape path, application metrics listener, or network needs investigation.
+2. **Request behavior:** compare request rate, status distribution, and latency
+   percentiles. Sustained 5xx responses require application-log review.
+3. **Link operations and cleanup:** look for failed create, follow, delete, or
+   expiry-cleanup results. Expired links are removed at startup and every 24
+   hours.
+4. **SQLite pool and latency:** elevated waits, in-use connections, or database
+   latency can indicate a stuck or overloaded local process.
+5. **Logs:** use the Loki panel filtered to `service=zibs` to correlate a time
+   window with JSON request, startup, shutdown, or cleanup records. Keep
+   request-specific fields in the log body, not Loki labels.
+
+### After a deployment
+
+Run the telemetry smoke test from `/opt/zibs`:
+
+```bash
+./scripts/telemetry-smoke-test.sh
+```
+
+It sends a health request, confirms Prometheus sees `up{job="zibs"} = 1`,
+waits for a zibs log in Loki, checks Grafana and both data sources, and checks
+both provisioned dashboard UIDs. A pass verifies the telemetry path end to end;
+it does not replace reviewing application behavior.
+
+### Share only the public dashboard
+
+The **zibs public metrics** dashboard is the only dashboard that may be shared.
+In Grafana, open it and use **Share → Share externally**, choose **Anyone with
+the link**, and leave time-range selection and annotations disabled. Caddy
+proxies only the narrow shared-dashboard route and required assets. Review every
+saved panel before enabling a share, and pause or revoke it from the same drawer
+when it is no longer appropriate. Never share the operator dashboard.

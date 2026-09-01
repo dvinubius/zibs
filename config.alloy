@@ -1,0 +1,32 @@
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "zibs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "zibs"
+    action        = "keep"
+  }
+}
+
+loki.source.docker "zibs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.zibs.output
+  labels     = {service = "zibs", environment = "production", container = "zibs"}
+  forward_to = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  stage.docker {}
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

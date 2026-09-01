@@ -1,0 +1,131 @@
+services:
+  zibs:
+    build:
+      context: .
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN in the deployment environment.}
+      # Container loopback would exclude the future Prometheus container.
+      # This port is intentionally not published to the host.
+      METRICS_ADDRESS: 0.0.0.0:9091
+    ports:
+      - "127.0.0.1:8080:8080"
+    expose:
+      - "9091"
+    volumes:
+      - zibs-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    networks:
+      - app-edge
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    profiles:
+      - production
+    depends_on:
+      - zibs
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-zibs.app}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    networks:
+      - app-edge
+
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    profiles:
+      - production
+    depends_on:
+      - zibs
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - app-edge
+
+  loki:
+    image: grafana/loki:3.7.2
+    profiles:
+      - production
+    command:
+      - -config.file=/etc/loki/config.yml
+    volumes:
+      - ./loki.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+    networks:
+      - observability
+
+  alloy:
+    image: grafana/alloy:v1.18.0
+    profiles:
+      - production
+    depends_on:
+      - loki
+    command:
+      - run
+      # The port remains private to the internal observability network; this
+      # lets the deploy-time readiness probe reach Alloy from the Docker host.
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    user: "0"
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - alloy-data:/var/lib/alloy/data
+    restart: unless-stopped
+    networks:
+      - observability
+
+  grafana:
+    image: grafana/grafana:13.0.6
+    profiles:
+      - production
+    depends_on:
+      - prometheus
+      - loki
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the deployment environment.}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    # Operator access is through an SSH tunnel to the VM, not the public network.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+    networks:
+      - app-edge
+      - observability
+
+volumes:
+  zibs-data:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:
+
+networks:
+  app-edge:
+  observability:
+    internal: true

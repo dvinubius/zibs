@@ -1,0 +1,14 @@
+.git
+.agents
+.claude
+.vscode
+.codex
+docs
+data
+*.db
+*.db-*
+.env
+.env.*
+README.md
+*_test.go
+.devnotes.md

@@ -1,0 +1,26 @@
+.DS_Store
+
+# Local application data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Build and test output
+bin/
+coverage.out
+
+.env*
+
+# Compiled binary (go build)
+/zibs
+
+
+.devnotes.md
+AGENTS.md
+.agents/
+.claude/
+.vscode/
+docs/learning/*
+
+.dev-backups/
