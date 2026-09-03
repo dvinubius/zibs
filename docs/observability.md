@@ -249,6 +249,37 @@ Then visit `http://localhost:3000`, sign in with `GRAFANA_ADMIN_USER` (default
 overview**. Do not expose port 3000 publicly or enable anonymous workspace
 access.
 
+### Change the dashboard layout
+
+Both dashboards use Grafana's **Classic** JSON model and are provisioned from
+the repository, so Grafana exports UI edits instead of saving them to its
+database. Grafana `13.0.x` has an upstream regression: **Save dashboard** emits
+a concrete V2 dashboard definition (`elements` and `layout`) even when the
+drawer says **Model: Classic**. The file provider rejects that V2 output. The
+[fix is merged for Grafana `13.3.x`](https://github.com/grafana/grafana/pull/131718);
+until this deployment runs a release that contains it, use the V2 output only
+as the source for the layout coordinates.
+
+To make a layout change durable with the current deployment:
+
+1. Arrange the panels in the Grafana UI.
+2. Choose **Save dashboard** and copy the JSON. In the resulting V2 definition,
+   each `layout.spec.items` entry refers to an `elements.panel-N` entry.
+3. In the matching Classic file in `grafana/dashboards/`, update the panel whose
+   `id` is `N`: map V2 `x`, `y`, `width`, and `height` to that panel's
+   `gridPos.x`, `gridPos.y`, `gridPos.w`, and `gridPos.h`. For a layout-only
+   change, these are the only meaningful changes.
+4. Review and commit the diff, then use the dashboard-only deployment procedure
+   in the [deployment runbook](deployment-runbook.md#update-only-grafana-dashboards).
+
+V2 exports use `apiVersion`, `spec`, `elements`, and `layout` rather than the
+Classic `panels` array, so they must not replace these files. Once Grafana is
+upgraded to a release containing the upstream fix, **Save dashboard → Model:
+Classic** will again yield a Classic file with `panels` and `gridPos` that can
+be reviewed and applied directly. Do not edit the container path
+`/var/lib/grafana/dashboards`: it is a read-only bind mount. The repository is
+the durable source of truth.
+
 ### Normal operating checks
 
 Use the dashboard time range that covers the reported issue, then review:

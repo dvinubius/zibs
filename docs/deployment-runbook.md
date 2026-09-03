@@ -49,6 +49,30 @@ With `DEPLOY_ALL=1`, it force-recreates profile containers without removing
 named volumes, waits for Loki and Alloy readiness, then runs the telemetry
 smoke test. See [Observability](observability.md) for what that test proves.
 
+### Update only Grafana dashboards
+
+To upload only the provisioned dashboard definitions, without building or
+recreating any containers, run:
+
+```bash
+DEPLOY_DASHBOARDS=1 ./scripts/deploy.sh
+```
+
+This validates and uploads only `grafana/dashboards/operator.json` and
+`grafana/dashboards/public-metrics.json` to
+`/opt/zibs/grafana/dashboards/` on the VM. Grafana sees the files through its
+read-only bind mount and applies them within its 30-second provisioning scan.
+This mode requires `DEPLOY_HOST` (and `DEPLOY_SSH_KEY` when applicable), but
+does not require `ADMIN_TOKEN` or `GRAFANA_ADMIN_PASSWORD` and does not write
+the VM `.env` file. It also requires local `jq` to validate the JSON. It cannot
+be combined with `DEPLOY_ALL=1`. The script accepts only the project’s Classic
+dashboard model, with the expected dashboard UID; it rejects a V2 Resource
+export before connecting to the VM. Grafana 13.0.x has a known regression where
+the **Save dashboard** drawer can emit V2 JSON even when its **Classic** model
+option is selected; do not deploy that output directly. See the
+[operator-dashboard runbook](observability.md#change-the-dashboard-layout) for
+the current layout-update workflow.
+
 ## Verify
 
 From the VM, confirm the service is healthy:
