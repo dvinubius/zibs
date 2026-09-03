@@ -46,7 +46,7 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 		prometheus.HistogramOpts{
 			Name:    "zibs_http_request_duration_seconds",
 			Help:    "HTTP request duration in seconds.",
-			Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
+			Buckets: []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
 		},
 		[]string{"route", "method"},
 	)

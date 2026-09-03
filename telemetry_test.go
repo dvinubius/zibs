@@ -117,6 +117,38 @@ func TestLogRequestsRecordsHTTPMetrics(t *testing.T) {
 	}
 }
 
+func TestHTTPRequestDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	metrics.httpRequestDuration.WithLabelValues("/health", http.MethodGet).Observe(0.0001)
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+
+	want := []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2}
+	for _, family := range metricFamilies {
+		if family.GetName() != "zibs_http_request_duration_seconds" {
+			continue
+		}
+		if len(family.Metric) != 1 {
+			t.Fatalf("histogram series = %d, want 1", len(family.Metric))
+		}
+		buckets := family.Metric[0].GetHistogram().Bucket
+		if len(buckets) != len(want) {
+			t.Fatalf("histogram bucket count = %d, want %d", len(buckets), len(want))
+		}
+		for i, upperBound := range want {
+			if got := buckets[i].GetUpperBound(); got != upperBound {
+				t.Errorf("bucket %d upper bound = %v, want %v", i, got, upperBound)
+			}
+		}
+		return
+	}
+
+	t.Fatal("HTTP request duration histogram was not registered")
+}
+
 func TestLogRequestsUsesOneRouteLabelForShortCodes(t *testing.T) {
 	metrics, registry := newTestMetrics(t)
 	handler := logRequests(
