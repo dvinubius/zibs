@@ -49,6 +49,28 @@ With `DEPLOY_ALL=1`, it force-recreates profile containers without removing
 named volumes, waits for Loki and Alloy readiness, then runs the telemetry
 smoke test. See [Observability](observability.md) for what that test proves.
 
+### Convert a Grafana V2 layout export
+
+Grafana 13.0.x can emit V2 dashboard JSON from **Save dashboard** even when
+the drawer labels it Classic. Do not deploy that V2 JSON through this project's
+Classic file provider. Instead, use its V2 grid layout to update only the
+existing Classic dashboard's panel positions:
+
+```bash
+./scripts/apply-grafana-v2-layout.sh \
+  ~/Downloads/zibs-operator-v2.json \
+  grafana/dashboards/operator.json
+git diff -- grafana/dashboards/operator.json
+```
+
+The first argument may be either Grafana's bare V2 dashboard body or its V2
+Resource envelope. The converter requires a `GridLayout`, verifies that every
+`elements.panel-N` item maps exactly once to the target Classic dashboard's
+panel `id: N`, and changes only `gridPos`. It refuses tabs, rows, missing
+panels, duplicate IDs, and malformed coordinates without changing the target.
+It reformats the target JSON, so review the diff for semantic changes before
+continuing.
+
 ### Update only Grafana dashboards
 
 To upload only the provisioned dashboard definitions, without building or
@@ -70,8 +92,8 @@ dashboard model, with the expected dashboard UID; it rejects a V2 Resource
 export before connecting to the VM. Grafana 13.0.x has a known regression where
 the **Save dashboard** drawer can emit V2 JSON even when its **Classic** model
 option is selected; do not deploy that output directly. See the
-[operator-dashboard runbook](observability.md#change-the-dashboard-layout) for
-the current layout-update workflow.
+[V2-layout conversion procedure](#convert-a-grafana-v2-layout) before deploying
+layout changes.
 
 ## Verify
 
