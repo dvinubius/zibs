@@ -52,10 +52,16 @@ if [[ $deploy_dashboards == 1 ]]; then
 	# directory to poll its provisioned dashboard files.
 	ssh "${ssh_options[@]}" "$target" "install -d -m 0755 $deploy_path/grafana/dashboards"
 	rsync -az \
+		--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
 		-e "$ssh_command" \
 		"$project_dir/grafana/dashboards/operator.json" \
 		"$project_dir/grafana/dashboards/public-metrics.json" \
 		"$target:$deploy_path/grafana/dashboards/"
+	# rsync archive mode preserves source modification times. Touch the uploaded
+	# files so Grafana's polling file provider reliably detects this deploy,
+	# including when a source file happens to retain its previous timestamp.
+	ssh "${ssh_options[@]}" "$target" \
+		"chmod 0755 $deploy_path/grafana/dashboards && touch $deploy_path/grafana/dashboards/operator.json $deploy_path/grafana/dashboards/public-metrics.json"
 	printf '%s\n' 'Dashboard JSON uploaded. Grafana will apply it within 30 seconds.'
 	exit 0
 fi
@@ -65,14 +71,16 @@ admin_token=${ADMIN_TOKEN:?Set ADMIN_TOKEN without writing it to a file in this 
 # service's ${GRAFANA_ADMIN_PASSWORD:?} at parse time regardless of the
 # services being started, and the .env written below must stay complete.
 grafana_admin_password=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the deployment environment.}
+build_version=${ZIBS_BUILD_VERSION:-dev}
+build_commit=$(git -C "$project_dir" rev-parse --verify HEAD)
 
 if [[ $admin_token == *$'\n'* ]]; then
 	printf '%s\n' 'ADMIN_TOKEN must not contain a newline.' >&2
 	exit 1
 fi
 
-if [[ $grafana_admin_password == *$'\n'* ]]; then
-	printf '%s\n' 'GRAFANA_ADMIN_PASSWORD must not contain a newline.' >&2
+if [[ $grafana_admin_password == *$'\n'* ]] || [[ $build_version == *$'\n'* ]] || [[ $build_commit == *$'\n'* ]]; then
+	printf '%s\n' 'GRAFANA_ADMIN_PASSWORD, ZIBS_BUILD_VERSION, and the Git commit must not contain a newline.' >&2
 	exit 1
 fi
 
@@ -92,7 +100,7 @@ rsync -az \
 # Secrets travel over SSH and are written as a mode-0600 file on the VM.
 # Both are always written: an app-only deploy must not clobber the Grafana
 # password out of .env, and compose needs it defined even to start just zibs.
-printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\n' "$admin_token" "$grafana_admin_password" | \
+printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\nZIBS_BUILD_VERSION=%s\nZIBS_BUILD_COMMIT=%s\n' "$admin_token" "$grafana_admin_password" "$build_version" "$build_commit" | \
 	ssh "${ssh_options[@]}" "$target" "umask 077; cat > $deploy_path/.env"
 
 if [[ $deploy_all == 1 ]]; then

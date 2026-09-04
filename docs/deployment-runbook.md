@@ -44,6 +44,10 @@ The script synchronizes source to `/opt/zibs`, excluding local databases,
 environment files, documentation, and Git metadata. It writes the required
 secrets to `/opt/zibs/.env` with mode `0600`, builds remotely, starts the
 selected Compose services, and verifies `http://127.0.0.1:8080/health`.
+It also reads the local checked-out Git revision and passes it to the Docker
+build as the `zibs_build_info` commit label; `.git` is never copied to the VM
+or image. `ZIBS_BUILD_VERSION` optionally supplies a release-version label and
+defaults to `dev`.
 
 With `DEPLOY_ALL=1`, it force-recreates profile containers without removing
 named volumes, waits for Loki and Alloy readiness, then runs the telemetry
@@ -83,7 +87,13 @@ DEPLOY_DASHBOARDS=1 ./scripts/deploy.sh
 This validates and uploads only `grafana/dashboards/operator.json` and
 `grafana/dashboards/public-metrics.json` to
 `/opt/zibs/grafana/dashboards/` on the VM. Grafana sees the files through its
-read-only bind mount and applies them within its 30-second provisioning scan.
+read-only bind mount and applies them within its 30-second provisioning scan;
+the script makes the directory traversable and dashboard files world-readable
+for Grafana's non-root container user, then refreshes their modification times
+so that scan reliably detects the update. When changing an existing provisioned
+dashboard, also increase its top-level JSON `version`; Grafana does not
+overwrite a newer database dashboard with an equal or older file version. No
+Grafana restart is needed.
 This mode requires `DEPLOY_HOST` (and `DEPLOY_SSH_KEY` when applicable), but
 does not require `ADMIN_TOKEN` or `GRAFANA_ADMIN_PASSWORD` and does not write
 the VM `.env` file. It also requires local `jq` to validate the JSON. It cannot

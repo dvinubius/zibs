@@ -281,6 +281,15 @@ func TestMetricsRegistryIncludesGoAndProcessCollectors(t *testing.T) {
 	}
 }
 
+func TestMetricsRegistryIncludesBuildInfo(t *testing.T) {
+	_, registry := newTestMetrics(t)
+
+	assertGaugeMetric(t, registry, "zibs_build_info", map[string]string{
+		"version": buildVersion,
+		"commit":  buildCommit,
+	}, 1)
+}
+
 func TestMetricsRegistryIncludesDatabaseStats(t *testing.T) {
 	db, err := openDB(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

@@ -13,6 +13,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// buildVersion and buildCommit describe the binary being run. They retain
+// useful local-development defaults and are replaced with -ldflags in Docker
+// builds deployed by scripts/deploy.sh.
+var (
+	buildVersion = "dev"
+	buildCommit  = "none"
+)
+
 type metrics struct {
 	httpRequests          *prometheus.CounterVec
 	httpRequestDuration   *prometheus.HistogramVec
@@ -104,6 +112,18 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 		[]string{"result"},
 	)
 
+	buildInfo := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "zibs_build_info",
+			Help: "Build identity of the running zibs binary.",
+			ConstLabels: prometheus.Labels{
+				"version": buildVersion,
+				"commit":  buildCommit,
+			},
+		},
+	)
+	buildInfo.Set(1)
+
 	if err := registry.Register(httpRequests); err != nil {
 		return nil, nil, fmt.Errorf("register HTTP request counter: %w", err)
 	}
@@ -133,6 +153,10 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 
 	if err := registry.Register(expiryCleanupDuration); err != nil {
 		return nil, nil, fmt.Errorf("register expiry cleanup duration histogram: %w", err)
+	}
+
+	if err := registry.Register(buildInfo); err != nil {
+		return nil, nil, fmt.Errorf("register build info gauge: %w", err)
 	}
 
 	return &metrics{
