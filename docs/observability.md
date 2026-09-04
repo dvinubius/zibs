@@ -105,6 +105,7 @@ and selected `database/sql` pool statistics.
 |---|---|---|---|
 | `zibs_http_requests_total` | Counter | `route`, `method`, `status` | Completed application requests |
 | `zibs_http_request_duration_seconds` | Histogram | `route`, `method` | Application request latency |
+| `zibs_http_in_flight_requests` | Gauge | none | Application requests currently being handled |
 | `zibs_link_operations_total` | Counter | `operation`, `result` | Create, follow, and delete outcomes |
 | `zibs_db_operation_duration_seconds` | Histogram | `operation`, `result` | Database operation duration |
 | `zibs_expired_links_deleted_total` | Counter | none | Rows removed by expiry cleanup |
@@ -125,6 +126,18 @@ whose `expires_at` is later than the collection time, so expired rows are not
 reported as active during the interval before periodic cleanup deletes them. A
 query that cannot complete within one second reports `NaN`, rather than a
 misleading zero.
+
+`zibs_http_in_flight_requests` increments immediately before the application
+handler runs and decrements when it returns, including an error response. It is
+a diagnostic snapshot of concurrent work, not a request-rate or throughput
+metric. With the normal 30-second scrape interval, fast requests usually begin
+and finish between scrapes, so an observed zero is expected at this traffic
+level.
+
+Prometheus 3 normalizes classic-histogram `le` label values when it ingests
+them. Dashboard queries that select an integer bucket directly must therefore
+use the normalized form (for example, `le="2.0"`), even though zibs exposes
+that bucket as `le="2"` on its metrics endpoint.
 
 Do not add a short code, destination URL, raw path, client IP, request ID, or
 error text as a Prometheus label. Those values are high-cardinality or may be
@@ -276,8 +289,12 @@ Use the dashboard time range that covers the reported issue, then review:
 
 1. **Availability:** Prometheus `up` should be `1`; a missing target means the
    scrape path, application metrics listener, or network needs investigation.
-2. **Request behavior:** compare request rate, status distribution, and latency
-   percentiles. Sustained 5xx responses require application-log review.
+2. **Request behavior:** compare request rate, status distribution, and the
+   normal-range latency panel. Its visual cap keeps isolated slow requests
+   from obscuring ordinary millisecond-scale behavior. Check **Requests over
+   2 seconds in selected period** and then private Loki logs for the exact
+   duration and request context of any slow work. Sustained 5xx responses
+   require application-log review.
 3. **Link operations and cleanup:** look for failed create, follow, delete, or
    expiry-cleanup results. Expired links are removed at startup and every 24
    hours.
@@ -299,6 +316,36 @@ It sends a health request, confirms Prometheus sees `up{job="zibs"} = 1`,
 waits for a zibs log in Loki, checks Grafana and both data sources, and checks
 both provisioned dashboard UIDs. A pass verifies the telemetry path end to end;
 it does not replace reviewing application behavior.
+
+### Validating the in-flight request gauge in production
+
+Normal requests are too brief to reliably appear in a scrape. After deploying
+the application change, use an already-authorized creation token to send one
+deliberately incomplete request body and keep its input stream open for at
+least 70 seconds. The route authenticates first, then waits for the incomplete
+JSON body; it cannot create a link. This consumes that single-use creation
+token, so issue a disposable one specifically for the check.
+
+In one terminal, keep the request open (replace the placeholder only in your
+shell; do not put a real token in a command history or commit):
+
+```bash
+read -rs ZIBS_CREATION_TOKEN
+export ZIBS_CREATION_TOKEN
+{ printf '{'; sleep 70; } | curl --http1.1 --no-buffer --request POST --upload-file - \
+  --header 'Expect:' \
+  --header 'Transfer-Encoding: chunked' \
+  --header "Authorization: Bearer $ZIBS_CREATION_TOKEN" \
+  --header 'Content-Type: application/json' https://zibs.app/links
+unset ZIBS_CREATION_TOKEN
+```
+
+While it is open, wait for one Prometheus scrape and confirm the private
+operator dashboard's **In-flight requests** panel reads `1`; it may take up to
+30 seconds to change. Once the stream closes, wait for the next scrape and
+confirm it returns to `0`. The request should end with HTTP 400 because its
+body is invalid, which is expected. Do not use the public dashboard for this
+check: the panel is intentionally operator-only.
 
 ### Share only the public dashboard
 

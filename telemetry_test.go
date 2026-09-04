@@ -115,6 +115,35 @@ func TestLogRequestsRecordsHTTPMetrics(t *testing.T) {
 	if got := httpRequestCounterValue(t, registry, "/links", http.MethodPost, "201"); got != 1 {
 		t.Errorf("HTTP request counter = %v, want 1", got)
 	}
+	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 0)
+}
+
+func TestLogRequestsTracksInFlightRequestsUntilHandlerReturns(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	handler := logRequests(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		metrics,
+		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			close(entered)
+			<-release
+			http.Error(w, "temporary failure", http.StatusInternalServerError)
+		}),
+	)
+
+	finished := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/health", nil))
+		close(finished)
+	}()
+
+	<-entered
+	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 1)
+	close(release)
+	<-finished
+	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 0)
+	assertCounterMetric(t, registry, "zibs_http_requests_total", map[string]string{"route": "/health", "method": http.MethodGet, "status": "500"}, 1)
 }
 
 func TestHTTPRequestDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T) {

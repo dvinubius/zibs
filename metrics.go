@@ -16,6 +16,7 @@ import (
 type metrics struct {
 	httpRequests          *prometheus.CounterVec
 	httpRequestDuration   *prometheus.HistogramVec
+	httpInFlightRequests  prometheus.Gauge
 	linkOperations        *prometheus.CounterVec
 	dbOperationDuration   *prometheus.HistogramVec
 	expiredLinksDeleted   prometheus.Counter
@@ -52,6 +53,13 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 			Buckets: []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
 		},
 		[]string{"route", "method"},
+	)
+
+	httpInFlightRequests := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "zibs_http_in_flight_requests",
+			Help: "Current number of application requests being handled.",
+		},
 	)
 
 	linkOperations := prometheus.NewCounterVec(
@@ -95,6 +103,10 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 		return nil, nil, fmt.Errorf("register HTTP request duration histogram: %w", err)
 	}
 
+	if err := registry.Register(httpInFlightRequests); err != nil {
+		return nil, nil, fmt.Errorf("register HTTP in-flight request gauge: %w", err)
+	}
+
 	if err := registry.Register(linkOperations); err != nil {
 		return nil, nil, fmt.Errorf("register Link Operations counter: %w", err)
 	}
@@ -114,6 +126,7 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 	return &metrics{
 		httpRequests:          httpRequests,
 		httpRequestDuration:   httpRequestDuration,
+		httpInFlightRequests:  httpInFlightRequests,
 		linkOperations:        linkOperations,
 		dbOperationDuration:   dbOperationDuration,
 		expiredLinksDeleted:   expiredLinksDeleted,

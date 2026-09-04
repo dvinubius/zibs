@@ -114,6 +114,8 @@ func logRequests(logger *slog.Logger, metrics *metrics, next http.Handler) http.
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		started := time.Now()
 		recorder := &statusRecorder{ResponseWriter: w}
+		metrics.httpInFlightRequests.Inc()
+		defer metrics.httpInFlightRequests.Dec()
 
 		next.ServeHTTP(recorder, req)
 

@@ -355,8 +355,8 @@
     },
     {
       "id": 9,
-      "title": "Request latency",
-      "description": "Rolling average, p50, and p95. p99 is intentionally omitted at this traffic volume.",
+      "title": "Request latency (normal range)",
+      "description": "Rolling average, p50, and p95, visually capped so isolated slow requests do not obscure normal work. Inspect the slow-request panel and private logs for durations above the cap. p99 is intentionally omitted at this traffic volume.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -364,13 +364,14 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 16,
         "x": 0,
         "y": 14
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "s",
+          "max": 0.015
         },
         "overrides": []
       },
@@ -391,6 +392,116 @@
           "legendFormat": "p95"
         }
       ]
+    },
+    {
+      "id": 30,
+      "title": "Requests over 2 seconds in selected period",
+      "description": "Completed requests exceeding the HTTP histogram's largest finite bucket in the selected dashboard time range. Use private Loki logs for the exact duration and request context.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 16,
+        "y": 14
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(zibs_http_request_duration_seconds_bucket{le=\"+Inf\"}[$__range])) - sum(increase(zibs_http_request_duration_seconds_bucket{le=\"2.0\"}[$__range]))",
+          "legendFormat": "over 2 s"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "text": {
+          "valueSize": 64
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 29,
+      "title": "In-flight requests",
+      "description": "Current application requests being handled at scrape time. Use to investigate sustained work; it is not a throughput measure. Fast requests commonly complete between 30-second scrapes.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 20,
+        "y": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "zibs_http_in_flight_requests",
+          "legendFormat": "in flight"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "text": {
+          "valueSize": 64
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
     },
     {
       "id": 102,
@@ -626,12 +737,12 @@
       "description": "Successful link creation in fixed 24-hour and 7-day windows.",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"h": 5, "w": 4, "x": 12, "y": 23},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 23},
       "targets": [
         {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"create\",result=\"success\"}[24h])) or vector(0)", "legendFormat": "24h"},
         {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"create\",result=\"success\"}[7d])) or vector(0)", "legendFormat": "7d"}
       ],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 24}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
     },
     {
       "id": 24,
@@ -639,13 +750,13 @@
       "description": "Active short-link follows in fixed 24-hour and 7-day windows.",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"h": 5, "w": 4, "x": 4, "y": 23},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 23},
       "targets": [
         {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"success\"}[24h])) or vector(0)", "legendFormat": "24h"},
         {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"success\"}[7d])) or vector(0)", "legendFormat": "7d"}
       ],
       "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "#74BE69"}}, "overrides": []},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "value", "graphMode": "none", "justifyMode": "auto"}
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 24}, "textMode": "value_and_name", "colorMode": "value", "graphMode": "none", "justifyMode": "auto"}
     },
     {
       "id": 25,
@@ -653,12 +764,12 @@
       "description": "Short-link follows without an active matching link in fixed 24-hour and 7-day windows.",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"h": 5, "w": 4, "x": 8, "y": 23},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 23},
       "targets": [
         {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"not_found\"}[24h])) or vector(0)", "legendFormat": "24h"},
         {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"not_found\"}[7d])) or vector(0)", "legendFormat": "7d"}
       ],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 24}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
     },
     {
       "id": 26,
@@ -666,12 +777,12 @@
       "description": "Successful administrator link deletions in fixed 24-hour and 7-day windows.",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"h": 5, "w": 4, "x": 20, "y": 23},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 23},
       "targets": [
         {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"delete\",result=\"success\"}[24h])) or vector(0)", "legendFormat": "24h"},
         {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"delete\",result=\"success\"}[7d])) or vector(0)", "legendFormat": "7d"}
       ],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 24}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
     },
     {
       "id": 27,
@@ -679,12 +790,12 @@
       "description": "Links removed by expiry cleanup in fixed 24-hour and 7-day windows.",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"h": 5, "w": 4, "x": 16, "y": 23},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 23},
       "targets": [
         {"refId": "A", "expr": "sum(increase(zibs_expired_links_deleted_total[24h])) or vector(0)", "legendFormat": "24h"},
         {"refId": "B", "expr": "sum(increase(zibs_expired_links_deleted_total[7d])) or vector(0)", "legendFormat": "7d"}
       ],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 24}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
     },
     {
       "id": 28,
@@ -692,7 +803,7 @@
       "description": "Current count of unexpired links, collected from SQLite at scrape time.",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"h": 5, "w": 4, "x": 0, "y": 23},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 23},
       "targets": [{"refId": "A", "expr": "zibs_active_links"}],
       "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "#74BE69"}}, "overrides": []},
       "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "none", "justifyMode": "auto"}
