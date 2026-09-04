@@ -108,6 +108,7 @@ and selected `database/sql` pool statistics.
 | `zibs_http_in_flight_requests` | Gauge | none | Application requests currently being handled |
 | `zibs_link_operations_total` | Counter | `operation`, `result` | Create, follow, and delete outcomes |
 | `zibs_db_operation_duration_seconds` | Histogram | `operation`, `result` | Database operation duration |
+| `zibs_db_errors_total` | Counter | `operation`, `kind` | Database errors classified as `busy`, `constraint`, or `other` |
 | `zibs_expired_links_deleted_total` | Counter | none | Rows removed by expiry cleanup |
 | `zibs_expiry_cleanup_duration_seconds` | Histogram | `result` | Expiry-cleanup duration |
 | `zibs_active_links` | Gauge | none | Scrape-time count of unexpired links |
@@ -117,8 +118,9 @@ and selected `database/sql` pool statistics.
 | `zibs_db_wait_count_total` | Counter | none | Pool wait count |
 | `zibs_db_wait_duration_seconds_total` | Counter | none | Total pool wait time |
 
-Durations use seconds and the histograms use small buckets appropriate to a
-local service. The `route` label is normalized (for example, `/{code}` and
+Durations use seconds. HTTP and database-operation histograms start at 0.5 ms
+and include 1 ms, 2 ms, 3 ms, and 5 ms buckets before the wider service-level
+ranges. The `route` label is normalized (for example, `/{code}` and
 `/admin/links/{code}`), not the raw request path.
 
 `zibs_active_links` queries SQLite on each metrics scrape. It counts only rows
@@ -142,6 +144,12 @@ that bucket as `le="2"` on its metrics endpoint.
 Do not add a short code, destination URL, raw path, client IP, request ID, or
 error text as a Prometheus label. Those values are high-cardinality or may be
 sensitive. Keep them in the structured log body when needed for diagnosis.
+
+`zibs_db_errors_total` records only failed database work. Expected application
+outcomes such as a missing link or an invalid creation token are represented by
+the duration histogram's bounded `result` label, not as database errors. Both
+SQLite `BUSY` and `LOCKED` errors use `kind="busy"`; all other error messages
+remain out of metric labels.
 
 ### Logs
 
@@ -198,8 +206,9 @@ Grafana provisions both data sources and these dashboards from `grafana/` in
 the repository at startup:
 
 - **zibs operator overview** is private and includes request, latency, link
-  operation, fixed 24-hour/7-day business summaries, expiry-cleanup,
-  SQLite-pool panels, plus the Loki log panel filtered to `service=zibs`.
+  operation, database duration/error and SQLite-pool panels, fixed 24-hour/7-day
+  business summaries, expiry-cleanup, plus the Loki log panel filtered to
+  `service=zibs`.
 - **zibs public metrics** is a deliberately metrics-only dashboard. It has no
   variables or annotations, and its queries return only aggregate request and
   status counts, latency percentiles, 24-hour/7-day redirect and creation

@@ -19,6 +19,7 @@ type metrics struct {
 	httpInFlightRequests  prometheus.Gauge
 	linkOperations        *prometheus.CounterVec
 	dbOperationDuration   *prometheus.HistogramVec
+	dbErrors              *prometheus.CounterVec
 	expiredLinksDeleted   prometheus.Counter
 	expiryCleanupDuration *prometheus.HistogramVec
 }
@@ -74,9 +75,17 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 		prometheus.HistogramOpts{
 			Name:    "zibs_db_operation_duration_seconds",
 			Help:    "DB operation duration in seconds.",
-			Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
+			Buckets: []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
 		},
 		[]string{"operation", "result"},
+	)
+
+	dbErrors := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "zibs_db_errors_total",
+			Help: "Total number of database operation errors by bounded error kind.",
+		},
+		[]string{"operation", "kind"},
 	)
 
 	expiredLinksDeleted := prometheus.NewCounter(
@@ -114,6 +123,9 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 	if err := registry.Register(dbOperationDuration); err != nil {
 		return nil, nil, fmt.Errorf("register db operation duration histogram: %w", err)
 	}
+	if err := registry.Register(dbErrors); err != nil {
+		return nil, nil, fmt.Errorf("register db errors counter: %w", err)
+	}
 
 	if err := registry.Register(expiredLinksDeleted); err != nil {
 		return nil, nil, fmt.Errorf("register expiry links deleted counter: %w", err)
@@ -129,6 +141,7 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 		httpInFlightRequests:  httpInFlightRequests,
 		linkOperations:        linkOperations,
 		dbOperationDuration:   dbOperationDuration,
+		dbErrors:              dbErrors,
 		expiredLinksDeleted:   expiredLinksDeleted,
 		expiryCleanupDuration: expiryCleanupDuration,
 	}, registry, nil

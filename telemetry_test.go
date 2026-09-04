@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
@@ -176,6 +178,38 @@ func TestHTTPRequestDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T)
 	}
 
 	t.Fatal("HTTP request duration histogram was not registered")
+}
+
+func TestDBOperationDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	metrics.dbOperationDuration.WithLabelValues(dbOperationCreate, "success").Observe(0.0001)
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+
+	want := []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2}
+	for _, family := range metricFamilies {
+		if family.GetName() != "zibs_db_operation_duration_seconds" {
+			continue
+		}
+		if len(family.Metric) != 1 {
+			t.Fatalf("histogram series = %d, want 1", len(family.Metric))
+		}
+		buckets := family.Metric[0].GetHistogram().Bucket
+		if len(buckets) != len(want) {
+			t.Fatalf("histogram bucket count = %d, want %d", len(buckets), len(want))
+		}
+		for i, upperBound := range want {
+			if got := buckets[i].GetUpperBound(); got != upperBound {
+				t.Errorf("bucket %d upper bound = %v, want %v", i, got, upperBound)
+			}
+		}
+		return
+	}
+
+	t.Fatal("DB operation duration histogram was not registered")
 }
 
 func TestLogRequestsUsesOneRouteLabelForShortCodes(t *testing.T) {
@@ -466,7 +500,53 @@ func TestCreateMetrics(t *testing.T) {
 
 		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "create", "result": "error"}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "create", "result": "error"}, 1)
+		assertCounterMetric(t, registry, "zibs_db_errors_total", map[string]string{"operation": "create", "kind": "other"}, 1)
 	})
+}
+
+func TestSQLiteErrorKind(t *testing.T) {
+	testCases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "busy", err: sqlite3.Error{Code: sqlite3.ErrBusy}, want: "busy"},
+		{name: "locked", err: sqlite3.Error{Code: sqlite3.ErrLocked}, want: "busy"},
+		{name: "constraint", err: sqlite3.Error{Code: sqlite3.ErrConstraint}, want: "constraint"},
+		{name: "non SQLite", err: errors.New("database unavailable: host=db.internal"), want: "other"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sqliteErrorKind(tc.err); got != tc.want {
+				t.Errorf("sqliteErrorKind(%v) = %q, want %q", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDBErrorMetricUsesBoundedLabels(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	newTestStoreWithMetrics(t, metrics).observeDBOperation("test_operation", "error", time.Now(), errors.New("unbounded detail: https://secret.example/abc"))
+
+	assertCounterMetric(t, registry, "zibs_db_errors_total", map[string]string{"operation": "test_operation", "kind": "other"}, 1)
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	for _, family := range metricFamilies {
+		if family.GetName() != "zibs_db_errors_total" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			for _, label := range metric.GetLabel() {
+				if strings.Contains(label.GetValue(), "secret.example") {
+					t.Fatalf("database error metric includes raw error text in label %q", label.GetName())
+				}
+			}
+		}
+	}
 }
 
 func TestFollowMetrics(t *testing.T) {
