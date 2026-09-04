@@ -39,7 +39,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 8,
+        "x": 0,
         "y": 1
       },
       "targets": [
@@ -85,7 +85,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 12,
+        "x": 4,
         "y": 1
       },
       "targets": [
@@ -131,7 +131,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 16,
+        "x": 8,
         "y": 1
       },
       "targets": [
@@ -176,7 +176,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 20,
+        "x": 12,
         "y": 1
       },
       "targets": [
@@ -222,7 +222,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 0,
+        "x": 20,
         "y": 1
       },
       "targets": [
@@ -259,7 +259,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 4,
+        "x": 16,
         "y": 1
       },
       "targets": [
@@ -394,13 +394,13 @@
     },
     {
       "id": 102,
-      "title": "Database and business",
+      "title": "Database",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 28
       },
       "collapsed": false,
       "panels": []
@@ -418,7 +418,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 29
       },
       "targets": [
         {
@@ -438,10 +438,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 8,
+        "h": 5,
+        "w": 4,
         "x": 0,
-        "y": 31
+        "y": 37
       },
       "targets": [
         {
@@ -484,10 +484,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 4,
-        "x": 8,
-        "y": 31
+        "x": 4,
+        "y": 37
       },
       "targets": [
         {
@@ -520,10 +520,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 4,
-        "x": 12,
-        "y": 31
+        "x": 8,
+        "y": 37
       },
       "targets": [
         {
@@ -554,42 +554,6 @@
       }
     },
     {
-      "id": 15,
-      "title": "Expired links deleted in selected period",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 16,
-        "y": 31
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(zibs_expired_links_deleted_total[$__range])) or vector(0)",
-          "legendFormat": "expired links"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "none",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      }
-    },
-    {
       "id": 16,
       "title": "Expiry cleanup duration",
       "description": "P95 of successful expiry-cleanup runs over the trailing 30 days.",
@@ -599,10 +563,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 4,
         "x": 20,
-        "y": 31
+        "y": 37
       },
       "targets": [
         {
@@ -649,6 +613,91 @@
       }
     },
     {
+      "id": 105,
+      "title": "Business summary",
+      "type": "row",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 23,
+      "title": "Links created",
+      "description": "Successful link creation in fixed 24-hour and 7-day windows.",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 4, "x": 12, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"create\",result=\"success\"}[24h])) or vector(0)", "legendFormat": "24h"},
+        {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"create\",result=\"success\"}[7d])) or vector(0)", "legendFormat": "7d"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
+      "id": 24,
+      "title": "Successful redirects",
+      "description": "Active short-link follows in fixed 24-hour and 7-day windows.",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 4, "x": 4, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"success\"}[24h])) or vector(0)", "legendFormat": "24h"},
+        {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"success\"}[7d])) or vector(0)", "legendFormat": "7d"}
+      ],
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "#74BE69"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "value", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
+      "id": 25,
+      "title": "Link misses",
+      "description": "Short-link follows without an active matching link in fixed 24-hour and 7-day windows.",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 4, "x": 8, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"not_found\"}[24h])) or vector(0)", "legendFormat": "24h"},
+        {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"follow\",result=\"not_found\"}[7d])) or vector(0)", "legendFormat": "7d"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
+      "id": 26,
+      "title": "Manual deletions",
+      "description": "Successful administrator link deletions in fixed 24-hour and 7-day windows.",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 4, "x": 20, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(zibs_link_operations_total{operation=\"delete\",result=\"success\"}[24h])) or vector(0)", "legendFormat": "24h"},
+        {"refId": "B", "expr": "sum(increase(zibs_link_operations_total{operation=\"delete\",result=\"success\"}[7d])) or vector(0)", "legendFormat": "7d"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
+      "id": 27,
+      "title": "Expiry deletions",
+      "description": "Links removed by expiry cleanup in fixed 24-hour and 7-day windows.",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 4, "x": 16, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(zibs_expired_links_deleted_total[24h])) or vector(0)", "legendFormat": "24h"},
+        {"refId": "B", "expr": "sum(increase(zibs_expired_links_deleted_total[7d])) or vector(0)", "legendFormat": "7d"}
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "text": {"titleSize": 24, "valueSize": 48}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
+      "id": 28,
+      "title": "Active links",
+      "description": "Current count of unexpired links, collected from SQLite at scrape time.",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 4, "x": 0, "y": 23},
+      "targets": [{"refId": "A", "expr": "zibs_active_links"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "#74BE69"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "none", "justifyMode": "auto"}
+    },
+    {
       "id": 103,
       "title": "Runtime",
       "type": "row",
@@ -656,7 +705,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 42
       },
       "collapsed": false,
       "panels": []
@@ -673,7 +722,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 38
+        "y": 43
       },
       "targets": [
         {
@@ -695,7 +744,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 38
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -723,7 +772,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 38
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -751,7 +800,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 38
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -779,7 +828,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 46
+        "y": 51
       },
       "targets": [
         {
@@ -802,7 +851,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 59
       },
       "collapsed": false,
       "panels": []
@@ -820,7 +869,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 55
+        "y": 60
       },
       "targets": [
         {

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -164,4 +167,26 @@ func registerDBStatsMetrics(registry *prometheus.Registry, db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// registerActiveLinksMetric registers a scrape-time count of links which have
+// not reached their expiry time. Expired rows are excluded even before the
+// periodic cleanup removes them.
+func registerActiveLinksMetric(registry *prometheus.Registry, store *linkStore) error {
+	return registry.Register(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "zibs_active_links",
+			Help: "Current number of links that have not expired.",
+		},
+		func() float64 {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			count, err := store.activeLinkCount(ctx)
+			if err != nil {
+				return math.NaN()
+			}
+			return float64(count)
+		},
+	))
 }

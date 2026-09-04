@@ -343,6 +343,24 @@ func counterMetricValue(registry *prometheus.Registry, name string, wantLabels m
 	return 0, false
 }
 
+func gaugeMetricValue(registry *prometheus.Registry, name string, wantLabels map[string]string) (float64, bool) {
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		return 0, false
+	}
+	for _, family := range metricFamilies {
+		if family.GetName() != name {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			if labelsMatch(metric.GetLabel(), wantLabels) && metric.GetGauge() != nil {
+				return metric.GetGauge().GetValue(), true
+			}
+		}
+	}
+	return 0, false
+}
+
 func histogramMetricCount(registry *prometheus.Registry, name string, wantLabels map[string]string) (uint64, bool) {
 	metricFamilies, err := registry.Gather()
 	if err != nil {
@@ -365,6 +383,15 @@ func assertCounterMetric(t *testing.T, registry *prometheus.Registry, name strin
 	t.Helper()
 
 	got, ok := counterMetricValue(registry, name, labels)
+	if !ok || got != want {
+		t.Errorf("%s%v = %v, found %t; want %v", name, labels, got, ok, want)
+	}
+}
+
+func assertGaugeMetric(t *testing.T, registry *prometheus.Registry, name string, labels map[string]string, want float64) {
+	t.Helper()
+
+	got, ok := gaugeMetricValue(registry, name, labels)
 	if !ok || got != want {
 		t.Errorf("%s%v = %v, found %t; want %v", name, labels, got, ok, want)
 	}

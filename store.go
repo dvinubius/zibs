@@ -366,6 +366,18 @@ func (s *linkStore) deleteExpired(ctx context.Context) (int64, error) {
 	return deleted, nil
 }
 
+func (s *linkStore) activeLinkCount(ctx context.Context) (int, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM links
+		WHERE expires_at > ?
+	`, s.now().UTC().Unix()).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count active links: %w", err)
+	}
+	return count, nil
+}
+
 func (s *linkStore) delete(code string) error {
 	resultForMetric := "error"
 	defer func() {

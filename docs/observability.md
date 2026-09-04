@@ -109,6 +109,7 @@ and selected `database/sql` pool statistics.
 | `zibs_db_operation_duration_seconds` | Histogram | `operation`, `result` | Database operation duration |
 | `zibs_expired_links_deleted_total` | Counter | none | Rows removed by expiry cleanup |
 | `zibs_expiry_cleanup_duration_seconds` | Histogram | `result` | Expiry-cleanup duration |
+| `zibs_active_links` | Gauge | none | Scrape-time count of unexpired links |
 | `zibs_db_open_connections` | Gauge | none | Current SQLite pool connections |
 | `zibs_db_in_use_connections` | Gauge | none | Connections currently in use |
 | `zibs_db_idle_connections` | Gauge | none | Idle connections |
@@ -118,6 +119,12 @@ and selected `database/sql` pool statistics.
 Durations use seconds and the histograms use small buckets appropriate to a
 local service. The `route` label is normalized (for example, `/{code}` and
 `/admin/links/{code}`), not the raw request path.
+
+`zibs_active_links` queries SQLite on each metrics scrape. It counts only rows
+whose `expires_at` is later than the collection time, so expired rows are not
+reported as active during the interval before periodic cleanup deletes them. A
+query that cannot complete within one second reports `NaN`, rather than a
+misleading zero.
 
 Do not add a short code, destination URL, raw path, client IP, request ID, or
 error text as a Prometheus label. Those values are high-cardinality or may be
@@ -178,12 +185,12 @@ Grafana provisions both data sources and these dashboards from `grafana/` in
 the repository at startup:
 
 - **zibs operator overview** is private and includes request, latency, link
-  operation, expiry-cleanup, SQLite-pool panels, plus the Loki log panel
-  filtered to `service=zibs`.
+  operation, fixed 24-hour/7-day business summaries, expiry-cleanup,
+  SQLite-pool panels, plus the Loki log panel filtered to `service=zibs`.
 - **zibs public metrics** is a deliberately metrics-only dashboard. It has no
-  variables or annotations, and its queries return only request-rate and status
-  aggregates, latency percentiles, redirect totals, and the Prometheus `up`
-  signal.
+  variables or annotations, and its queries return only aggregate request and
+  status counts, latency percentiles, 24-hour/7-day redirect and creation
+  totals, the active-link count, and the Prometheus `up` signal.
 
 `grafana-data` persists Grafana's own SQLite database. It retains the
 administrator account, externally-shared-dashboard state when that feature is
@@ -221,8 +228,8 @@ dashboard's saved queries, while a workspace viewer could explore data more
 broadly.
 
 The public dashboard may include aggregated request rate, status proportions,
-latency percentiles, redirect totals, creation-authorization outcomes,
-database latency, and process health. It must not include:
+latency percentiles, redirect and creation totals, the active-link count, and
+the service-up signal. It must not include:
 
 - raw Loki logs;
 - raw paths or live short codes;
