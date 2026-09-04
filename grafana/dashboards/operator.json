@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 41,
-  "version": 3,
+  "version": 7,
   "refresh": "30s",
   "time": {
     "from": "now-24h",
@@ -306,19 +306,20 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 0,
+        "x": 10,
         "y": 5
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (version, commit) (zibs_build_info)",
-          "legendFormat": "{{version}} · {{commit}}"
+          "expr": "max by (version, commit, short_commit) (label_replace(zibs_build_info, \"short_commit\", \"$1\", \"commit\", \"^(.{1,8}).*$\"))",
+          "instant": true,
+          "legendFormat": "{{version}} · {{short_commit}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "displayName": "${__field.labels.version} · ${__field.labels.commit}",
+          "displayName": "${__field.labels.version} · ${__field.labels.short_commit}",
           "color": {
             "mode": "fixed",
             "fixedColor": "#8F9BA8"
@@ -336,6 +337,9 @@
         },
         "orientation": "auto",
         "textMode": "name",
+        "text": {
+          "titleSize": 24
+        },
         "colorMode": "none",
         "graphMode": "none",
         "justifyMode": "center"

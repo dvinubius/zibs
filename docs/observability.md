@@ -217,8 +217,12 @@ the repository at startup:
 - **zibs operator overview** is private and includes request, latency, link
   operation, database duration/error and SQLite-pool panels, fixed 24-hour/7-day
   business summaries, expiry-cleanup, build identity and process uptime, plus
-  the Loki log panel filtered to `service=zibs`. It has no deployment-event
-  annotation because no durable deployment-event source exists yet.
+  the Loki log panel filtered to `service=zibs`. The compact build card uses an
+  instant query, so it shows only the currently scraped build rather than
+  historical builds in the dashboard time range; it shows the version and first
+  eight commit characters while the full commit remains in Prometheus. It has no
+  deployment-event annotation because no durable deployment-event source exists
+  yet.
 - **zibs public metrics** is a deliberately metrics-only dashboard. It has no
   variables or annotations, and its queries return only aggregate request and
   status counts, latency percentiles, 24-hour/7-day redirect and creation
