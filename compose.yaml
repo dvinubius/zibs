@@ -104,6 +104,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the deployment environment.}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: "1m"
     # Operator access is through an SSH tunnel to the VM, not the public network.
     ports:
       - "127.0.0.1:3000:3000"
