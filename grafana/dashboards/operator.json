@@ -421,8 +421,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
-          "max": 0.015
+          "unit": "s"
         },
         "overrides": []
       },
@@ -443,53 +442,6 @@
           "legendFormat": "p95"
         }
       ]
-    },
-    {
-      "id": 30,
-      "title": "Requests over 2 seconds in selected period",
-      "description": "Completed requests exceeding the HTTP histogram's largest finite bucket in the selected dashboard time range. Use private Loki logs for the exact duration and request context.",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 16,
-        "y": 18
-      },
-      "fieldConfig": {
-        "defaults": {
-          "min": 0,
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(zibs_http_request_duration_seconds_bucket{le=\"+Inf\"}[$__range])) - sum(increase(zibs_http_request_duration_seconds_bucket{le=\"2.0\"}[$__range]))",
-          "legendFormat": "over 2 s"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "text": {
-          "valueSize": 64
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
-      }
     },
     {
       "id": 29,
