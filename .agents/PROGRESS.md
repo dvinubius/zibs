@@ -3,7 +3,7 @@
 ## Current state
 
 - Branch: `refine-observability`
-- Status: Phase 4 is complete and production-validated.
+- Status: Phase 5 changes are ready for production deployment and validation.
 
 ## Working files
 
@@ -29,7 +29,11 @@
 
 ## Next step
 
-Phase 5 — host health.
+Deploy and validate Phase 5 — host health.
 
-Inspect the VM filesystem mounts and introduce private,
-least-privilege host metrics for capacity and storage health.
+The VM mount inventory shows one capacity-relevant ext4 root filesystem
+(`/dev/sda1` mounted at `/`). The configuration adds private, least-privilege
+node_exporter host metrics, filters Docker/pseudo/EFI filesystems, adds
+Prometheus scraping and private operator panels, and extends the telemetry
+smoke test. Deploy the full profile; verify the `node` target, no published
+port, only root filesystem series, and dashboard values against `df -B1 /`.

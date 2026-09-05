@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 41,
-  "version": 7,
+  "version": 8,
   "refresh": "30s",
   "time": {
     "from": "now-24h",
@@ -1294,6 +1294,236 @@
       ]
     },
     {
+      "id": 106,
+      "title": "Host health",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 70
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 35,
+      "title": "Host CPU utilization",
+      "description": "Average non-idle CPU utilization across the VM's logical CPUs.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 71
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\"}[$__rate_interval]))",
+          "legendFormat": "utilization"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "title": "Host memory utilization",
+      "description": "Memory in use, calculated from MemTotal minus MemAvailable.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 71
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - (node_memory_MemAvailable_bytes{job=\"node\"} / node_memory_MemTotal_bytes{job=\"node\"})",
+          "legendFormat": "utilization"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "title": "Host load average",
+      "description": "Runnable and uninterruptible work over one, five, and 15 minutes; compare with the VM's CPU count.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 71
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_load1{job=\"node\"}",
+          "legendFormat": "1m"
+        },
+        {
+          "refId": "B",
+          "expr": "node_load5{job=\"node\"}",
+          "legendFormat": "5m"
+        },
+        {
+          "refId": "C",
+          "expr": "node_load15{job=\"node\"}",
+          "legendFormat": "15m"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "title": "Root filesystem free space",
+      "description": "Available bytes on the VM's ext4 root filesystem, which contains Docker volumes, SQLite, backups, and telemetry state.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 79
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_avail_bytes{job=\"node\",mountpoint=\"/\"}",
+          "legendFormat": "free"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "title": "Root filesystem headroom",
+      "description": "Available space as a percentage of the VM's capacity-relevant ext4 root filesystem.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 79
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * node_filesystem_avail_bytes{job=\"node\",mountpoint=\"/\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=\"/\"}",
+          "legendFormat": "headroom"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "title": "Host disk I/O",
+      "description": "Read and written bytes per second for physical VM disks; loop and RAM devices are excluded.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 79
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_disk_read_bytes_total{job=\"node\",device!~\"loop.*|ram.*\"}[$__rate_interval])",
+          "legendFormat": "{{device}} read"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_disk_written_bytes_total{job=\"node\",device!~\"loop.*|ram.*\"}[$__rate_interval])",
+          "legendFormat": "{{device}} written"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "title": "Host network traffic",
+      "description": "Received and transmitted bytes per second for host-facing interfaces; loopback and Docker virtual interfaces are excluded.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 79
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_network_receive_bytes_total{job=\"node\",device!~\"lo|docker.*|veth.*|br-.*\"}[$__rate_interval])",
+          "legendFormat": "{{device}} received"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_network_transmit_bytes_total{job=\"node\",device!~\"lo|docker.*|veth.*|br-.*\"}[$__rate_interval])",
+          "legendFormat": "{{device}} sent"
+        }
+      ]
+    },
+    {
       "id": 104,
       "title": "Application logs",
       "type": "row",
@@ -1301,7 +1531,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 70
+        "y": 87
       },
       "collapsed": false,
       "panels": []
@@ -1319,7 +1549,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 71
+        "y": 88
       },
       "targets": [
         {

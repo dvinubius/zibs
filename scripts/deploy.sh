@@ -117,7 +117,7 @@ ssh "${ssh_options[@]}" "$target" \
 if [[ $deploy_all == 1 ]]; then
 	ssh "${ssh_options[@]}" "$target" "
 		cd $deploy_path || exit 1
-		for service in zibs caddy prometheus loki alloy grafana; do
+		for service in zibs caddy prometheus node-exporter loki alloy grafana; do
 			status=\$(docker compose --profile production ps --status running --services \"\$service\")
 			if [ \"\$status\" != \"\$service\" ]; then
 				printf '%s\\n' \"expected \$service to be running, got: \$status\" >&2

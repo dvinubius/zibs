@@ -18,6 +18,7 @@ flowchart TB
                 caddyAppEdge[Caddy<br/>attachment]
                 zibs[zibs<br/>metrics: TCP 9091]
                 prometheus[Prometheus<br/>TCP 9090]
+                nodeExporter[node_exporter<br/>TCP 9100]
                 grafanaAppEdge["Grafana<br/>(attachment)"]
             end
             subgraph observability[observability Docker network — internal]
@@ -36,6 +37,7 @@ flowchart TB
     browser ==>|HTTPS public shared-dashboard route| caddy
     caddyAppEdge -->|reverse proxy the<br/>public Grafana dashboard| grafanaAppEdge
     prometheus -->|scrape /metrics TCP 9091| zibs
+    prometheus -->|scrape host metrics TCP 9100| nodeExporter
     prometheus -->|save metrics| prometheusData
     alloy -->|Docker socket: zibs stdout only| zibs
     alloy -->|push JSON logs| loki
@@ -52,7 +54,8 @@ flowchart TB
     class caddyAppEdge,grafanaAppEdge,grafanaObservability networkAttachment;
 ```
 
-The Compose `app-edge` network connects zibs, Caddy, Prometheus, and Grafana.
+The Compose `app-edge` network connects zibs, Caddy, Prometheus,
+node_exporter, and Grafana.
 The internal-only `observability` network connects Alloy, Loki, and Grafana.
 Grafana joins both networks so it can query both data sources. Prometheus, Loki,
 Alloy, and zibs's metrics listener have no public host-port mappings. Grafana
@@ -64,6 +67,7 @@ binds only to `127.0.0.1:3000` on the VM; operators use an SSH tunnel.
 |---|---|---|---|
 | 9091 | TCP | `app-edge` Docker network only | Prometheus metrics; neither host-published nor proxied |
 | 9090 | TCP | `app-edge` Docker network only | Prometheus UI and query API; not host-published |
+| 9100 | TCP | `app-edge` Docker network only | node_exporter host metrics; neither host-published nor proxied |
 | 3100 | TCP | Internal `observability` Docker network only | Loki API; not host-published |
 | 12345 | TCP | Internal `observability` Docker network only | Alloy readiness endpoint; not host-published |
 | 3000 | TCP | VM loopback only | Private Grafana workspace; operators use an SSH tunnel |
@@ -77,7 +81,8 @@ public-metrics dashboard, proxied by Caddy on its narrow route.
 
 | Component | Repository configuration | Durable state | Key behavior |
 |---|---|---|---|
-| Prometheus | [`prometheus.yml`](../prometheus.yml) | `prometheus-data` | Scrapes `zibs:9091` every 30 seconds |
+| Prometheus | [`prometheus.yml`](../prometheus.yml) | `prometheus-data` | Scrapes `zibs:9091` and `node-exporter:9100` every 30 seconds |
+| node_exporter | [`compose.yaml`](../compose.yaml) | none | Private, read-only view of host `/`, `/proc`, and `/sys` for VM capacity metrics |
 | Alloy | [`config.alloy`](../config.alloy) | `alloy-data` | Discovers only Compose service `zibs`, preserves Docker JSON logs, pushes to Loki |
 | Loki | [`loki.yml`](../loki.yml) | `loki-data` | Filesystem TSDB with 14-day retention |
 | Grafana | [`grafana/provisioning/`](../grafana/provisioning/) and [`grafana/dashboards/`](../grafana/dashboards/) | `grafana-data` | Provisions Prometheus/Loki data sources plus private and shareable dashboards |
@@ -216,8 +221,9 @@ the repository at startup:
 
 - **zibs operator overview** is private and includes request, latency, link
   operation, database duration/error and SQLite-pool panels, fixed 24-hour/7-day
-  business summaries, expiry-cleanup, build identity and process uptime, plus
-  the Loki log panel filtered to `service=zibs`. The compact build card uses an
+  business summaries, expiry-cleanup, build identity, process/runtime, and VM
+  CPU, memory, load, root-filesystem, disk-I/O, and network panels, plus the
+  Loki log panel filtered to `service=zibs`. The compact build card uses an
   instant query, so it shows only the currently scraped build rather than
   historical builds in the dashboard time range; it shows the version and first
   eight commit characters while the full commit remains in Prometheus. It has no
@@ -239,11 +245,12 @@ state.
 
 `scripts/telemetry-smoke-test.sh` runs on the VM after each full deployment and
 can be run manually from `/opt/zibs`. It sends a zibs health request, verifies
-that Prometheus reports `up{job="zibs"} = 1` and the commit recorded in the
-deployment environment, waits for a zibs log entry in Loki, checks Grafana's
-HTTP API and its provisioned Prometheus and Loki data sources, then verifies
-both provisioned dashboard UIDs. This is an integration check of the complete
-metrics-and-logs path, not merely a container liveness check.
+that Prometheus reports both `up{job="zibs"} = 1` and `up{job="node"} = 1`,
+and checks the commit recorded in the deployment environment. It then waits for
+a zibs log entry in Loki, checks Grafana's HTTP API and its provisioned
+Prometheus and Loki data sources, and verifies both provisioned dashboard UIDs.
+This is an integration check of the complete metrics-and-logs path, not merely
+a container liveness check.
 
 Initial alerts should cover application unavailability, sustained 5xx
 responses, failed expiry cleanup, failed backups, and disk-space pressure.
@@ -329,6 +336,28 @@ Use the dashboard time range that covers the reported issue, then review:
 6. **Lifecycle context:** compare **Build identity** with **Process uptime**.
    A new commit together with a recent start indicates a redeploy; the build
    metric is a constant identity signal, not a historical deployment record.
+7. **Host capacity:** check CPU, memory, and load together before diagnosing
+   saturation. The filesystem panels intentionally cover only `/`: on this VM
+   it is the ext4 filesystem that holds Docker, SQLite, backups, and telemetry
+   state. Compare free bytes and headroom with `df -B1 /` on the VM. Disk and
+   network panels exclude loopback and Docker virtual interfaces to focus on
+   host resource use.
+
+### Host-metrics boundary
+
+The production VM mount inventory was reviewed before enabling host metrics.
+It has a capacity-relevant ext4 root filesystem (`/` on `/dev/sda1`), a small
+EFI vfat mount, and Docker overlay, pseudo, and temporary mounts. The pinned
+`prom/node-exporter:v1.11.1` image was released on 2026-04-07, exceeding this
+repository's three-week package-age minimum at implementation time. It is
+attached only to `app-edge`, publishes no host port, drops all Linux
+capabilities, enables `no-new-privileges`, and receives a read-only recursive
+slave mount of `/`. Its root, proc, and sys paths point inside that mount.
+
+The filesystem collector excludes pseudo filesystems, Docker's overlay mount
+tree, and `/boot/efi`, so the expected capacity series is the ext4 root only.
+The exporter can still reveal host metadata and resource usage; keep it private
+and do not attach it to the public dashboard.
 
 ### After a deployment
 
@@ -338,10 +367,11 @@ Run the telemetry smoke test from `/opt/zibs`:
 ./scripts/telemetry-smoke-test.sh
 ```
 
-It sends a health request, confirms Prometheus sees `up{job="zibs"} = 1` and
-the deployed build commit, waits for a zibs log in Loki, checks Grafana and both
-data sources, and checks both provisioned dashboard UIDs. A pass verifies the
-telemetry path end to end; it does not replace reviewing application behavior.
+It sends a health request, confirms Prometheus sees both the `zibs` and `node`
+targets as up plus the deployed build commit, waits for a zibs log in Loki,
+checks Grafana and both data sources, and checks both provisioned dashboard
+UIDs. A pass verifies the telemetry path end to end; it does not replace
+reviewing application behavior.
 
 ### Validating the in-flight request gauge in production
 

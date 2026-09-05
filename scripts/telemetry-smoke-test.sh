@@ -62,6 +62,12 @@ prometheus_has_zibs_target() {
 		"http://$prometheus_ip:9090/api/v1/query" | grep -q '"result":\[{'
 }
 
+prometheus_has_node_target() {
+	curl --fail --silent --show-error --get \
+		--data-urlencode 'query=up{job="node"} == 1' \
+		"http://$prometheus_ip:9090/api/v1/query" | grep -q '"result":\[{'
+}
+
 prometheus_has_deployed_build() {
 	curl --fail --silent --show-error --get \
 		--data-urlencode "query=zibs_build_info{commit=\"$build_commit\"} == 1" \
@@ -97,6 +103,7 @@ curl --fail --silent --show-error http://127.0.0.1:8080/health >/dev/null
 printf '%s\n' 'PASS: zibs accepted a health request.'
 
 wait_for 'Prometheus reports zibs as up' prometheus_has_zibs_target
+wait_for 'Prometheus reports node_exporter as up' prometheus_has_node_target
 wait_for 'Prometheus reports the deployed build commit' prometheus_has_deployed_build
 wait_for 'Loki contains a zibs log entry' loki_has_zibs_log
 wait_for 'Grafana HTTP API is healthy' grafana_is_healthy

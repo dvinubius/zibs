@@ -48,15 +48,15 @@ ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
   'cd /opt/zibs && docker compose --profile production logs --tail=100 loki alloy'
 ```
 
-## Prometheus: is the zibs target up?
+## Prometheus: are the zibs and node targets up?
 
-Query Prometheus from inside its own container. The `up{job="zibs"}` value
-should be `1`:
+Query Prometheus from inside its own container. Both target values should be
+`1`; `node` is the private node_exporter target:
 
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
   'cd /opt/zibs && docker compose --profile production exec -T prometheus \
-  wget -qO- "http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22zibs%22%7D"'
+  wget -qO- "http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D~%22zibs%7Cnode%22%7D"'
 ```
 
 List all scrape targets and their last errors:
@@ -65,6 +65,25 @@ List all scrape targets and their last errors:
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
   'cd /opt/zibs && docker compose --profile production exec -T prometheus \
   wget -qO- http://127.0.0.1:9090/api/v1/targets'
+```
+
+## Host filesystem headroom
+
+The operator dashboard's root-filesystem panels should match the VM's root
+filesystem. Compare directly without exposing node_exporter outside Docker:
+
+```bash
+ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" 'df -B1 /'
+```
+
+The only expected `node_filesystem_*` series for capacity panels has
+`mountpoint="/"`; Docker overlays, pseudo filesystems, and `/boot/efi` are
+excluded. To verify the series through private Prometheus:
+
+```bash
+ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
+  'cd /opt/zibs && docker compose --profile production exec -T prometheus \
+  wget -qO- "http://127.0.0.1:9090/api/v1/query?query=node_filesystem_avail_bytes%7Bjob%3D%22node%22%2Cmountpoint%3D%22%2F%22%7D"'
 ```
 
 ## Loki and Alloy readiness
