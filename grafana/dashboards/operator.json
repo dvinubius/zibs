@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 41,
-  "version": 9,
+  "version": 10,
   "refresh": "30s",
   "time": {
     "from": "now-24h",
@@ -265,7 +265,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - process_start_time_seconds",
+          "expr": "time() - process_start_time_seconds{job=\"zibs\"}",
           "legendFormat": "uptime"
         }
       ],
@@ -364,7 +364,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 16,
+        "w": 12,
         "x": 0,
         "y": 14
       },
@@ -402,7 +402,7 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 4,
         "x": 20,
         "y": 14
@@ -1126,7 +1126,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "go_goroutines",
+          "expr": "go_goroutines{job=\"zibs\"}",
           "legendFormat": "goroutines"
         }
       ]
@@ -1154,7 +1154,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "go_memstats_alloc_bytes",
+          "expr": "go_memstats_alloc_bytes{job=\"zibs\"}",
           "legendFormat": "heap allocated"
         }
       ]
@@ -1182,7 +1182,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "process_resident_memory_bytes",
+          "expr": "process_resident_memory_bytes{job=\"zibs\"}",
           "legendFormat": "resident memory"
         }
       ]
@@ -1210,7 +1210,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(process_cpu_seconds_total[$__rate_interval])",
+          "expr": "rate(process_cpu_seconds_total{job=\"zibs\"}[$__rate_interval])",
           "legendFormat": "CPU"
         }
       ]
@@ -1232,12 +1232,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "process_open_fds",
+          "expr": "process_open_fds{job=\"zibs\"}",
           "legendFormat": "open"
         },
         {
           "refId": "B",
-          "expr": "process_max_fds",
+          "expr": "process_max_fds{job=\"zibs\"}",
           "legendFormat": "limit"
         }
       ]

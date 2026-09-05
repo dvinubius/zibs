@@ -3,7 +3,8 @@
 ## Current state
 
 - Branch: `refine-observability`
-- Status: Phase 5 changes are ready for production deployment and validation.
+- Status: Phase 5 is complete and production-validated. Phases 4 and 6 are
+  deferred until the service has materially higher usage.
 
 ## Working files
 
@@ -29,11 +30,10 @@
 
 ## Next step
 
-Deploy and validate Phase 5 — host health.
+Phase 7 — logs and dashboard navigation.
 
-The VM mount inventory shows one capacity-relevant ext4 root filesystem
-(`/dev/sda1` mounted at `/`). The configuration adds private, least-privilege
-node_exporter host metrics, filters Docker/pseudo/EFI filesystems, adds
-Prometheus scraping and private operator panels, and extends the telemetry
-smoke test. Deploy the full profile; verify the `node` target, no published
-port, only root filesystem series, and dashboard values against `df -B1 /`.
+Add stable structured log fields, preserve the boundary against tokens and
+destination URLs, and add bounded private Grafana links from selected panels to
+Loki. Add request IDs only if the resulting multi-event flows need a real join
+key. Phases 4 and 6 are intentionally deferred; see
+`.agents/deferred-observability-work.md`.
