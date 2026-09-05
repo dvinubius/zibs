@@ -116,7 +116,6 @@ and selected `database/sql` pool statistics.
 | `zibs_db_errors_total` | Counter | `operation`, `kind` | Database errors classified as `busy`, `constraint`, or `other` |
 | `zibs_expired_links_deleted_total` | Counter | none | Rows removed by expiry cleanup |
 | `zibs_expiry_cleanup_duration_seconds` | Histogram | `result` | Expiry-cleanup duration |
-| `zibs_build_info` | Gauge | `version`, `commit` | Constant `1` identifying the running binary |
 | `zibs_active_links` | Gauge | none | Scrape-time count of unexpired links |
 | `zibs_db_open_connections` | Gauge | none | Current SQLite pool connections |
 | `zibs_db_in_use_connections` | Gauge | none | Connections currently in use |
@@ -156,14 +155,6 @@ outcomes such as a missing link or an invalid creation token are represented by
 the duration histogram's bounded `result` label, not as database errors. Both
 SQLite `BUSY` and `LOCKED` errors use `kind="busy"`; all other error messages
 remain out of metric labels.
-
-`zibs_build_info` always has the value `1`. Its two fixed labels identify the
-binary that registered the metric; they are not request or user data. A direct
-local `go run .` or `go build .` reports `version="dev"` and `commit="none"`.
-The deployment script replaces the commit with the local checked-out Git
-revision at image-build time, without sending `.git` into the Docker context.
-Set `ZIBS_BUILD_VERSION` before deploying only when a release version is
-available; otherwise deployed builds retain `version="dev"`.
 
 ### Logs
 
@@ -221,14 +212,9 @@ the repository at startup:
 
 - **zibs operator overview** is private and includes request, latency, link
   operation, database duration/error and SQLite-pool panels, fixed 24-hour/7-day
-  business summaries, expiry-cleanup, build identity, process/runtime, and VM
-  CPU, memory, load, root-filesystem, disk-I/O, and network panels, plus the
-  Loki log panel filtered to `service=zibs`. The compact build card uses an
-  instant query, so it shows only the currently scraped build rather than
-  historical builds in the dashboard time range; it shows the version and first
-  eight commit characters while the full commit remains in Prometheus. It has no
-  deployment-event annotation because no durable deployment-event source exists
-  yet.
+  business summaries, expiry-cleanup, process/runtime, and VM CPU, memory,
+  load, root-filesystem, disk-I/O, and network panels, plus the Loki log panel
+  filtered to `service=zibs`.
 - **zibs public metrics** is a deliberately metrics-only dashboard. It has no
   variables or annotations, and its queries return only aggregate request and
   status counts, latency percentiles, 24-hour/7-day redirect and creation
@@ -245,12 +231,11 @@ state.
 
 `scripts/telemetry-smoke-test.sh` runs on the VM after each full deployment and
 can be run manually from `/opt/zibs`. It sends a zibs health request, verifies
-that Prometheus reports both `up{job="zibs"} = 1` and `up{job="node"} = 1`,
-and checks the commit recorded in the deployment environment. It then waits for
-a zibs log entry in Loki, checks Grafana's HTTP API and its provisioned
-Prometheus and Loki data sources, and verifies both provisioned dashboard UIDs.
-This is an integration check of the complete metrics-and-logs path, not merely
-a container liveness check.
+that Prometheus reports both `up{job="zibs"} = 1` and `up{job="node"} = 1`.
+It then waits for a zibs log entry in Loki, checks Grafana's HTTP API and its
+provisioned Prometheus and Loki data sources, and verifies both provisioned
+dashboard UIDs. This is an integration check of the complete metrics-and-logs
+path, not merely a container liveness check.
 
 Initial alerts should cover application unavailability, sustained 5xx
 responses, failed expiry cleanup, failed backups, and disk-space pressure.
@@ -333,10 +318,7 @@ Use the dashboard time range that covers the reported issue, then review:
 5. **Logs:** use the Loki panel filtered to `service=zibs` to correlate a time
    window with JSON request, startup, shutdown, or cleanup records. Keep
    request-specific fields in the log body, not Loki labels.
-6. **Lifecycle context:** compare **Build identity** with **Process uptime**.
-   A new commit together with a recent start indicates a redeploy; the build
-   metric is a constant identity signal, not a historical deployment record.
-7. **Host capacity:** check CPU, memory, and load together before diagnosing
+6. **Host capacity:** check CPU, memory, and load together before diagnosing
    saturation. The filesystem panels intentionally cover only `/`: on this VM
    it is the ext4 filesystem that holds Docker, SQLite, backups, and telemetry
    state. Compare free bytes and headroom with `df -B1 /` on the VM. Disk and
@@ -368,10 +350,9 @@ Run the telemetry smoke test from `/opt/zibs`:
 ```
 
 It sends a health request, confirms Prometheus sees both the `zibs` and `node`
-targets as up plus the deployed build commit, waits for a zibs log in Loki,
-checks Grafana and both data sources, and checks both provisioned dashboard
-UIDs. A pass verifies the telemetry path end to end; it does not replace
-reviewing application behavior.
+targets as up, waits for a zibs log in Loki, checks Grafana and both data
+sources, and checks both provisioned dashboard UIDs. A pass verifies the
+telemetry path end to end; it does not replace reviewing application behavior.
 
 ### Validating the in-flight request gauge in production
 

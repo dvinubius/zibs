@@ -3,15 +3,12 @@ FROM golang:1.25.0-bookworm AS build
 
 WORKDIR /src
 
-ARG BUILD_VERSION=dev
-ARG BUILD_COMMIT=none
-
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY *.go ./
 COPY web ./web
-RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w -X main.buildVersion=${BUILD_VERSION} -X main.buildCommit=${BUILD_COMMIT}" -o /out/zibs .
+RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/zibs .
 
 FROM debian:bookworm-slim
 

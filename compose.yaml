@@ -2,9 +2,6 @@ services:
   zibs:
     build:
       context: .
-      args:
-        BUILD_VERSION: ${ZIBS_BUILD_VERSION:-dev}
-        BUILD_COMMIT: ${ZIBS_BUILD_COMMIT:-none}
     environment:
       ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN in the deployment environment.}
       # Container loopback would exclude the future Prometheus container.

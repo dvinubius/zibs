@@ -71,16 +71,14 @@ admin_token=${ADMIN_TOKEN:?Set ADMIN_TOKEN without writing it to a file in this 
 # service's ${GRAFANA_ADMIN_PASSWORD:?} at parse time regardless of the
 # services being started, and the .env written below must stay complete.
 grafana_admin_password=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the deployment environment.}
-build_version=${ZIBS_BUILD_VERSION:-dev}
-build_commit=$(git -C "$project_dir" rev-parse --verify HEAD)
 
 if [[ $admin_token == *$'\n'* ]]; then
 	printf '%s\n' 'ADMIN_TOKEN must not contain a newline.' >&2
 	exit 1
 fi
 
-if [[ $grafana_admin_password == *$'\n'* ]] || [[ $build_version == *$'\n'* ]] || [[ $build_commit == *$'\n'* ]]; then
-	printf '%s\n' 'GRAFANA_ADMIN_PASSWORD, ZIBS_BUILD_VERSION, and the Git commit must not contain a newline.' >&2
+if [[ $grafana_admin_password == *$'\n'* ]]; then
+	printf '%s\n' 'GRAFANA_ADMIN_PASSWORD must not contain a newline.' >&2
 	exit 1
 fi
 
@@ -97,10 +95,16 @@ rsync -az \
 	-e "$ssh_command" \
 	"$project_dir/" "$target:$deploy_path/"
 
+# rsync archive mode preserves local modes. Dashboard files are bind-mounted
+# into Grafana, which runs as a non-root user, so keep every provisioned input
+# traversable/readable after both full and application-only deployments.
+ssh "${ssh_options[@]}" "$target" \
+	"chmod 0755 $deploy_path/grafana $deploy_path/grafana/dashboards $deploy_path/grafana/provisioning $deploy_path/grafana/provisioning/dashboards $deploy_path/grafana/provisioning/datasources && chmod 0644 $deploy_path/grafana/dashboards/operator.json $deploy_path/grafana/dashboards/public-metrics.json $deploy_path/grafana/provisioning/dashboards/dashboards.yaml $deploy_path/grafana/provisioning/datasources/datasources.yaml"
+
 # Secrets travel over SSH and are written as a mode-0600 file on the VM.
 # Both are always written: an app-only deploy must not clobber the Grafana
 # password out of .env, and compose needs it defined even to start just zibs.
-printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\nZIBS_BUILD_VERSION=%s\nZIBS_BUILD_COMMIT=%s\n' "$admin_token" "$grafana_admin_password" "$build_version" "$build_commit" | \
+printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\n' "$admin_token" "$grafana_admin_password" | \
 	ssh "${ssh_options[@]}" "$target" "umask 077; cat > $deploy_path/.env"
 
 if [[ $deploy_all == 1 ]]; then

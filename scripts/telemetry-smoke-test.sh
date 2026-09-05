@@ -19,12 +19,6 @@ if [[ -z $grafana_password ]]; then
 	exit 1
 fi
 
-build_commit=$(sed -n 's/^ZIBS_BUILD_COMMIT=//p' .env)
-if [[ -z $build_commit ]]; then
-	printf '%s\n' 'ZIBS_BUILD_COMMIT is missing from .env.' >&2
-	exit 1
-fi
-
 service_ip() {
 	local service=$1
 	local container_id
@@ -68,12 +62,6 @@ prometheus_has_node_target() {
 		"http://$prometheus_ip:9090/api/v1/query" | grep -q '"result":\[{'
 }
 
-prometheus_has_deployed_build() {
-	curl --fail --silent --show-error --get \
-		--data-urlencode "query=zibs_build_info{commit=\"$build_commit\"} == 1" \
-		"http://$prometheus_ip:9090/api/v1/query" | grep -q '"result":\[{'
-}
-
 loki_has_zibs_log() {
 	curl --fail --silent --show-error --get \
 		--data-urlencode 'query={service="zibs"}' \
@@ -104,7 +92,6 @@ printf '%s\n' 'PASS: zibs accepted a health request.'
 
 wait_for 'Prometheus reports zibs as up' prometheus_has_zibs_target
 wait_for 'Prometheus reports node_exporter as up' prometheus_has_node_target
-wait_for 'Prometheus reports the deployed build commit' prometheus_has_deployed_build
 wait_for 'Loki contains a zibs log entry' loki_has_zibs_log
 wait_for 'Grafana HTTP API is healthy' grafana_is_healthy
 wait_for 'Grafana can query Prometheus' grafana_data_source_is_healthy prometheus
