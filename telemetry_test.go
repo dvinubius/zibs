@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -10,14 +11,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
 
 func TestLogRequests(t *testing.T) {
 	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
 	metrics, _ := newTestMetrics(t)
 	handler := logRequests(logger, metrics, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -27,16 +30,26 @@ func TestLogRequests(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	for _, want := range []string{
-		`msg="request completed"`,
-		"method=GET",
-		"path=/health",
-		"status=204",
-		"duration=",
+	entry := decodeJSONLog(t, logs.Bytes())
+	for field, want := range map[string]any{
+		"msg":    "request completed",
+		"event":  "request_completed",
+		"route":  "/health",
+		"method": http.MethodGet,
+		"status": float64(http.StatusNoContent),
 	} {
-		if !strings.Contains(logs.String(), want) {
-			t.Errorf("log = %q, want it to contain %q", logs.String(), want)
+		if got := entry[field]; got != want {
+			t.Errorf("log field %q = %#v, want %#v", field, got, want)
 		}
+	}
+	if _, ok := entry["duration_ms"].(float64); !ok {
+		t.Errorf("duration_ms = %#v, want JSON number", entry["duration_ms"])
+	}
+	if got, want := entry["path"], "/health"; got != want {
+		t.Errorf("path = %#v, want %q", got, want)
+	}
+	if _, ok := entry["error_category"]; ok {
+		t.Errorf("successful request has error_category: %#v", entry)
 	}
 }
 
@@ -77,7 +90,7 @@ func TestLogRequestsDoesNotLogBearerTokens(t *testing.T) {
 			var logs bytes.Buffer
 			metrics, _ := newTestMetrics(t)
 			handler := logRequests(
-				slog.New(slog.NewTextHandler(&logs, nil)),
+				slog.New(slog.NewJSONHandler(&logs, nil)),
 				metrics,
 				newTestHandler(t, store),
 			)
@@ -93,8 +106,51 @@ func TestLogRequestsDoesNotLogBearerTokens(t *testing.T) {
 			if strings.Contains(logs.String(), tc.token) {
 				t.Errorf("request log contains bearer token")
 			}
+			if tc.body != "" && strings.Contains(logs.String(), tc.body) {
+				t.Errorf("request log contains request body")
+			}
 		})
 	}
+}
+
+func TestLogRequestsUsesBoundedRouteAndErrorCategory(t *testing.T) {
+	var logs bytes.Buffer
+	metrics, _ := newTestMetrics(t)
+	handler := logRequests(
+		slog.New(slog.NewJSONHandler(&logs, nil)),
+		metrics,
+		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}),
+	)
+
+	handler.ServeHTTP(
+		httptest.NewRecorder(),
+		httptest.NewRequest(http.MethodGet, "/private-short-code?destination=https://example.com/secret", nil),
+	)
+
+	entry := decodeJSONLog(t, logs.Bytes())
+	if got, want := entry["route"], "/{code}"; got != want {
+		t.Errorf("route = %#v, want %q", got, want)
+	}
+	if got, want := entry["path"], "/private-short-code"; got != want {
+		t.Errorf("path = %#v, want %q", got, want)
+	}
+	if got, want := entry["error_category"], "server"; got != want {
+		t.Errorf("error_category = %#v, want %q", got, want)
+	}
+	if strings.Contains(logs.String(), "destination=https://example.com/secret") {
+		t.Errorf("request log contains query string: %q", logs.String())
+	}
+}
+
+func decodeJSONLog(t *testing.T, data []byte) map[string]any {
+	t.Helper()
+	var entry map[string]any
+	if err := json.Unmarshal(data, &entry); err != nil {
+		t.Fatalf("decode JSON log: %v\nlog: %s", err, data)
+	}
+	return entry
 }
 
 func TestLogRequestsRecordsHTTPMetrics(t *testing.T) {
@@ -115,6 +171,99 @@ func TestLogRequestsRecordsHTTPMetrics(t *testing.T) {
 	if got := httpRequestCounterValue(t, registry, "/links", http.MethodPost, "201"); got != 1 {
 		t.Errorf("HTTP request counter = %v, want 1", got)
 	}
+	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 0)
+}
+
+func TestLogRequestsTracksInFlightRequestsUntilHandlerReturns(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	handler := logRequests(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		metrics,
+		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			close(entered)
+			<-release
+			http.Error(w, "temporary failure", http.StatusInternalServerError)
+		}),
+	)
+
+	finished := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/health", nil))
+		close(finished)
+	}()
+
+	<-entered
+	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 1)
+	close(release)
+	<-finished
+	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 0)
+	assertCounterMetric(t, registry, "zibs_http_requests_total", map[string]string{"route": "/health", "method": http.MethodGet, "status": "500"}, 1)
+}
+
+func TestHTTPRequestDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	metrics.httpRequestDuration.WithLabelValues("/health", http.MethodGet).Observe(0.0001)
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+
+	want := []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2}
+	for _, family := range metricFamilies {
+		if family.GetName() != "zibs_http_request_duration_seconds" {
+			continue
+		}
+		if len(family.Metric) != 1 {
+			t.Fatalf("histogram series = %d, want 1", len(family.Metric))
+		}
+		buckets := family.Metric[0].GetHistogram().Bucket
+		if len(buckets) != len(want) {
+			t.Fatalf("histogram bucket count = %d, want %d", len(buckets), len(want))
+		}
+		for i, upperBound := range want {
+			if got := buckets[i].GetUpperBound(); got != upperBound {
+				t.Errorf("bucket %d upper bound = %v, want %v", i, got, upperBound)
+			}
+		}
+		return
+	}
+
+	t.Fatal("HTTP request duration histogram was not registered")
+}
+
+func TestDBOperationDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	metrics.dbOperationDuration.WithLabelValues(dbOperationCreate, "success").Observe(0.0001)
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+
+	want := []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2}
+	for _, family := range metricFamilies {
+		if family.GetName() != "zibs_db_operation_duration_seconds" {
+			continue
+		}
+		if len(family.Metric) != 1 {
+			t.Fatalf("histogram series = %d, want 1", len(family.Metric))
+		}
+		buckets := family.Metric[0].GetHistogram().Bucket
+		if len(buckets) != len(want) {
+			t.Fatalf("histogram bucket count = %d, want %d", len(buckets), len(want))
+		}
+		for i, upperBound := range want {
+			if got := buckets[i].GetUpperBound(); got != upperBound {
+				t.Errorf("bucket %d upper bound = %v, want %v", i, got, upperBound)
+			}
+		}
+		return
+	}
+
+	t.Fatal("DB operation duration histogram was not registered")
 }
 
 func TestLogRequestsUsesOneRouteLabelForShortCodes(t *testing.T) {
@@ -311,6 +460,24 @@ func counterMetricValue(registry *prometheus.Registry, name string, wantLabels m
 	return 0, false
 }
 
+func gaugeMetricValue(registry *prometheus.Registry, name string, wantLabels map[string]string) (float64, bool) {
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		return 0, false
+	}
+	for _, family := range metricFamilies {
+		if family.GetName() != name {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			if labelsMatch(metric.GetLabel(), wantLabels) && metric.GetGauge() != nil {
+				return metric.GetGauge().GetValue(), true
+			}
+		}
+	}
+	return 0, false
+}
+
 func histogramMetricCount(registry *prometheus.Registry, name string, wantLabels map[string]string) (uint64, bool) {
 	metricFamilies, err := registry.Gather()
 	if err != nil {
@@ -333,6 +500,15 @@ func assertCounterMetric(t *testing.T, registry *prometheus.Registry, name strin
 	t.Helper()
 
 	got, ok := counterMetricValue(registry, name, labels)
+	if !ok || got != want {
+		t.Errorf("%s%v = %v, found %t; want %v", name, labels, got, ok, want)
+	}
+}
+
+func assertGaugeMetric(t *testing.T, registry *prometheus.Registry, name string, labels map[string]string, want float64) {
+	t.Helper()
+
+	got, ok := gaugeMetricValue(registry, name, labels)
 	if !ok || got != want {
 		t.Errorf("%s%v = %v, found %t; want %v", name, labels, got, ok, want)
 	}
@@ -378,7 +554,53 @@ func TestCreateMetrics(t *testing.T) {
 
 		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "create", "result": "error"}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "create", "result": "error"}, 1)
+		assertCounterMetric(t, registry, "zibs_db_errors_total", map[string]string{"operation": "create", "kind": "other"}, 1)
 	})
+}
+
+func TestSQLiteErrorKind(t *testing.T) {
+	testCases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "busy", err: sqlite3.Error{Code: sqlite3.ErrBusy}, want: "busy"},
+		{name: "locked", err: sqlite3.Error{Code: sqlite3.ErrLocked}, want: "busy"},
+		{name: "constraint", err: sqlite3.Error{Code: sqlite3.ErrConstraint}, want: "constraint"},
+		{name: "non SQLite", err: errors.New("database unavailable: host=db.internal"), want: "other"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sqliteErrorKind(tc.err); got != tc.want {
+				t.Errorf("sqliteErrorKind(%v) = %q, want %q", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDBErrorMetricUsesBoundedLabels(t *testing.T) {
+	metrics, registry := newTestMetrics(t)
+	newTestStoreWithMetrics(t, metrics).observeDBOperation("test_operation", "error", time.Now(), errors.New("unbounded detail: https://secret.example/abc"))
+
+	assertCounterMetric(t, registry, "zibs_db_errors_total", map[string]string{"operation": "test_operation", "kind": "other"}, 1)
+
+	metricFamilies, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	for _, family := range metricFamilies {
+		if family.GetName() != "zibs_db_errors_total" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			for _, label := range metric.GetLabel() {
+				if strings.Contains(label.GetValue(), "secret.example") {
+					t.Fatalf("database error metric includes raw error text in label %q", label.GetName())
+				}
+			}
+		}
+	}
 }
 
 func TestFollowMetrics(t *testing.T) {

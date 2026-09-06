@@ -42,7 +42,7 @@
     <form id="shorten-form" method="post" action="">
       <div class="field">
         <label class="field-label" for="destination">destination url</label>
-        <input id="destination" type="text" inputmode="url" placeholder="paste a URL"
+        <input id="destination" type="text" inputmode="url" placeholder="paste your link"
                spellcheck="false" autocomplete="off">
       </div>
       <div class="field">
@@ -50,7 +50,7 @@
         <!-- Deliberately not type="password": the token is not an account
              credential, and a password field makes browsers offer to save it.
              Masking comes from -webkit-text-security in the stylesheet. -->
-        <input id="token" type="text" class="input-masked" placeholder="enter your token"
+        <input id="token" type="text" class="input-masked" placeholder="paste your token"
                autocomplete="off" spellcheck="false" autocapitalize="off"
                data-1p-ignore data-lpignore="true" data-bwignore>
         <p class="field-note">// no token yet? see above ↑</p>

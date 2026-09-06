@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
@@ -23,6 +24,25 @@ const (
 	shortCodeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	shortCodeLength   = 8
 	defaultLinkTTL    = 90 * 24 * time.Hour
+
+	// Token secrets are copied by hand from an email, so the alphabet is
+	// lowercase-only, drops the 0/o and 1/l lookalikes, and contains no
+	// characters that break double-click selection. 32 chars × 12 ≈ 60 bits,
+	// ample for a use-bounded, revocable token (ADR 0002).
+	creationTokenAlphabet = "abcdefghijkmnpqrstuvwxyz23456789"
+	creationTokenLength   = 12
+
+	dbOperationCreate               = "create"
+	dbOperationFollow               = "follow"
+	dbOperationDelete               = "delete"
+	dbOperationIssueCreationToken   = "issue_creation_token"
+	dbOperationConsumeCreationToken = "consume_creation_token"
+	dbOperationRevokeCreationToken  = "revoke_creation_token"
+	dbOperationListCreationTokens   = "list_creation_tokens"
+	dbOperationGetLink              = "get_link"
+	dbOperationDeleteExpiredLinks   = "delete_expired_links"
+	dbOperationCountActiveLinks     = "count_active_links"
+	dbOperationListLinks            = "list_links"
 )
 
 type Link struct {
@@ -48,23 +68,68 @@ type linkStore struct {
 	generateCode          func() (string, error)
 	generateCreationToken func() (id, token string, err error)
 	now                   func() time.Time
+	logger                *slog.Logger
 }
 
-func newLinkStore(db *sql.DB, metrics *metrics) *linkStore {
+func newLinkStore(db *sql.DB, metrics *metrics, loggers ...*slog.Logger) *linkStore {
+	var logger *slog.Logger
+	if len(loggers) != 0 {
+		logger = loggers[0]
+	}
+
 	return &linkStore{
 		db:                    db,
 		metrics:               metrics,
 		generateCode:          generateShortCode,
 		generateCreationToken: generateCreationToken,
 		now:                   time.Now,
+		logger:                logger,
+	}
+}
+
+// observeDBOperation records the outcome of one store-level SQLite operation.
+// Error labels are deliberately classified rather than using error text, which
+// could be unbounded or sensitive.
+func (s *linkStore) observeDBOperation(operation, result string, started time.Time, err error) {
+	s.metrics.dbOperationDuration.WithLabelValues(operation, result).Observe(time.Since(started).Seconds())
+	if err != nil {
+		s.metrics.dbErrors.WithLabelValues(operation, sqliteErrorKind(err)).Inc()
+		if s.logger != nil {
+			s.logger.Error("database operation failed",
+				"event", "database_operation_failed",
+				"operation", operation,
+				"error_category", sqliteErrorKind(err),
+				"error", err,
+			)
+		}
+	}
+}
+
+func sqliteErrorKind(err error) string {
+	var sqliteErr sqlite3.Error
+	if !errors.As(err, &sqliteErr) {
+		return "other"
+	}
+
+	switch sqliteErr.Code {
+	case sqlite3.ErrBusy, sqlite3.ErrLocked:
+		return "busy"
+	case sqlite3.ErrConstraint:
+		return "constraint"
+	default:
+		return "other"
 	}
 }
 
 func generateShortCode() (string, error) {
-	code := make([]byte, shortCodeLength)
-	const validByteLimit = 256 - (256 % len(shortCodeAlphabet))
+	return randomString(shortCodeAlphabet, shortCodeLength)
+}
 
-	for i := range code {
+func randomString(alphabet string, length int) (string, error) {
+	out := make([]byte, length)
+	validByteLimit := 256 - (256 % len(alphabet))
+
+	for i := range out {
 		for {
 			var randomByte [1]byte
 			if _, err := rand.Read(randomByte[:]); err != nil {
@@ -74,12 +139,12 @@ func generateShortCode() (string, error) {
 				continue
 			}
 
-			code[i] = shortCodeAlphabet[int(randomByte[0])%len(shortCodeAlphabet)]
+			out[i] = alphabet[int(randomByte[0])%len(alphabet)]
 			break
 		}
 	}
 
-	return string(code), nil
+	return string(out), nil
 }
 
 func generateCreationToken() (string, string, error) {
@@ -87,19 +152,18 @@ func generateCreationToken() (string, string, error) {
 	if _, err := rand.Read(idBytes); err != nil {
 		return "", "", fmt.Errorf("generate token ID: %w", err)
 	}
-	secretBytes := make([]byte, 32)
-	if _, err := rand.Read(secretBytes); err != nil {
+	secret, err := randomString(creationTokenAlphabet, creationTokenLength)
+	if err != nil {
 		return "", "", fmt.Errorf("generate token secret: %w", err)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(idBytes),
-		"ust_" + base64.RawURLEncoding.EncodeToString(secretBytes), nil
+	return base64.RawURLEncoding.EncodeToString(idBytes), "zib_" + secret, nil
 }
 
 func (s *linkStore) create(destinationURL string) (link Link, err error) {
 	result := "error"
 	defer func() {
-		s.metrics.linkOperations.WithLabelValues("create", result).Inc()
+		s.metrics.linkOperations.WithLabelValues(dbOperationCreate, result).Inc()
 	}()
 
 	for {
@@ -128,11 +192,11 @@ func (s *linkStore) create(destinationURL string) (link Link, err error) {
 				// intentionally excluded from the minimal DB metrics.
 				continue
 			}
-			s.metrics.dbOperationDuration.WithLabelValues("create", "error").Observe(time.Since(started).Seconds())
+			s.observeDBOperation(dbOperationCreate, "error", started, err)
 			return Link{}, err
 		}
 
-		s.metrics.dbOperationDuration.WithLabelValues("create", "success").Observe(time.Since(started).Seconds())
+		s.observeDBOperation(dbOperationCreate, "success", started, nil)
 		result = "success"
 		return link, nil
 	}
@@ -153,6 +217,7 @@ func (s *linkStore) issueCreationToken(label string, maxUses int) (CreationToken
 			MaxUses:   maxUses,
 		}
 		hash := sha256.Sum256([]byte(token))
+		started := time.Now()
 		_, err = s.db.Exec(`
 			INSERT INTO creation_tokens
 				(id, token_hash, label, created_at, max_uses, use_count)
@@ -163,15 +228,18 @@ func (s *linkStore) issueCreationToken(label string, maxUses int) (CreationToken
 			if isUniqueConstraint(err) {
 				continue
 			}
+			s.observeDBOperation(dbOperationIssueCreationToken, "error", started, err)
 			return CreationToken{}, "", fmt.Errorf("insert creation token: %w", err)
 		}
 
+		s.observeDBOperation(dbOperationIssueCreationToken, "success", started, nil)
 		return creationToken, token, nil
 	}
 }
 
 func (s *linkStore) consumeCreationToken(token string) error {
 	hash := sha256.Sum256([]byte(token))
+	started := time.Now()
 	result, err := s.db.Exec(`
 		UPDATE creation_tokens
 		SET use_count = use_count + 1
@@ -180,46 +248,57 @@ func (s *linkStore) consumeCreationToken(token string) error {
 			AND use_count < max_uses
 	`, hash[:])
 	if err != nil {
+		s.observeDBOperation(dbOperationConsumeCreationToken, "error", started, err)
 		return fmt.Errorf("consume creation token: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		s.observeDBOperation(dbOperationConsumeCreationToken, "error", started, err)
 		return fmt.Errorf("check creation token result: %w", err)
 	}
 	if rowsAffected == 0 {
+		s.observeDBOperation(dbOperationConsumeCreationToken, "invalid", started, nil)
 		return ErrCreationTokenInvalid
 	}
+	s.observeDBOperation(dbOperationConsumeCreationToken, "success", started, nil)
 	return nil
 }
 
 func (s *linkStore) revokeCreationToken(id string) error {
+	started := time.Now()
 	result, err := s.db.Exec(`
 		UPDATE creation_tokens
 		SET revoked_at = ?
 		WHERE id = ? AND revoked_at IS NULL
 	`, s.now().UTC().Unix(), id)
 	if err != nil {
+		s.observeDBOperation(dbOperationRevokeCreationToken, "error", started, err)
 		return fmt.Errorf("revoke creation token: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		s.observeDBOperation(dbOperationRevokeCreationToken, "error", started, err)
 		return fmt.Errorf("check token revocation result: %w", err)
 	}
 	if rowsAffected == 0 {
+		s.observeDBOperation(dbOperationRevokeCreationToken, "not_found", started, nil)
 		return ErrCreationTokenNotFound
 	}
+	s.observeDBOperation(dbOperationRevokeCreationToken, "success", started, nil)
 	return nil
 }
 
 func (s *linkStore) listCreationTokens() ([]CreationToken, error) {
+	started := time.Now()
 	rows, err := s.db.Query(`
 		SELECT id, label, created_at, max_uses, use_count, revoked_at
 		FROM creation_tokens
 		ORDER BY created_at DESC, id
 	`)
 	if err != nil {
+		s.observeDBOperation(dbOperationListCreationTokens, "error", started, err)
 		return nil, fmt.Errorf("list creation tokens: %w", err)
 	}
 	defer rows.Close()
@@ -237,6 +316,7 @@ func (s *linkStore) listCreationTokens() ([]CreationToken, error) {
 			&token.UseCount,
 			&revokedAt,
 		); err != nil {
+			s.observeDBOperation(dbOperationListCreationTokens, "error", started, err)
 			return nil, fmt.Errorf("scan creation token: %w", err)
 		}
 
@@ -248,9 +328,11 @@ func (s *linkStore) listCreationTokens() ([]CreationToken, error) {
 		tokens = append(tokens, token)
 	}
 	if err := rows.Err(); err != nil {
+		s.observeDBOperation(dbOperationListCreationTokens, "error", started, err)
 		return nil, fmt.Errorf("iterate creation tokens: %w", err)
 	}
 
+	s.observeDBOperation(dbOperationListCreationTokens, "success", started, nil)
 	return tokens, nil
 }
 
@@ -266,6 +348,7 @@ func (s *linkStore) get(code string) (Link, error) {
 	var createdAt string
 	var expiresAt int64
 
+	started := time.Now()
 	err := s.db.QueryRow(`
 		SELECT code, destination_url, created_at, expires_at, redirect_count
 		FROM links
@@ -278,11 +361,14 @@ func (s *linkStore) get(code string) (Link, error) {
 		&link.RedirectCount,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
+		s.observeDBOperation(dbOperationGetLink, "not_found", started, nil)
 		return Link{}, ErrLinkNotFound
 	}
 	if err != nil {
+		s.observeDBOperation(dbOperationGetLink, "error", started, err)
 		return Link{}, fmt.Errorf("get link: %w", err)
 	}
+	s.observeDBOperation(dbOperationGetLink, "success", started, nil)
 
 	parsedCreatedAt, err := time.Parse(time.RFC3339Nano, createdAt)
 	if err != nil {
@@ -297,7 +383,7 @@ func (s *linkStore) get(code string) (Link, error) {
 func (s *linkStore) follow(code string) (Link, error) {
 	result := "error"
 	defer func() {
-		s.metrics.linkOperations.WithLabelValues("follow", result).Inc()
+		s.metrics.linkOperations.WithLabelValues(dbOperationFollow, result).Inc()
 	}()
 
 	var link Link
@@ -318,16 +404,16 @@ func (s *linkStore) follow(code string) (Link, error) {
 		&link.RedirectCount,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		s.metrics.dbOperationDuration.WithLabelValues("follow", "not_found").Observe(time.Since(started).Seconds())
+		s.observeDBOperation(dbOperationFollow, "not_found", started, nil)
 		result = "not_found"
 		return Link{}, ErrLinkNotFound
 	}
 	if err != nil {
-		s.metrics.dbOperationDuration.WithLabelValues("follow", "error").Observe(time.Since(started).Seconds())
+		s.observeDBOperation(dbOperationFollow, "error", started, err)
 		return Link{}, fmt.Errorf("increment redirect count: %w", err)
 	}
 
-	s.metrics.dbOperationDuration.WithLabelValues("follow", "success").Observe(time.Since(started).Seconds())
+	s.observeDBOperation(dbOperationFollow, "success", started, nil)
 
 	parsedCreatedAt, err := time.Parse(time.RFC3339Nano, createdAt)
 	if err != nil {
@@ -341,25 +427,44 @@ func (s *linkStore) follow(code string) (Link, error) {
 }
 
 func (s *linkStore) deleteExpired(ctx context.Context) (int64, error) {
+	started := time.Now()
 	result, err := s.db.ExecContext(ctx, `
 		DELETE FROM links
 		WHERE expires_at <= ?
 	`, s.now().UTC().Unix())
 	if err != nil {
+		s.observeDBOperation(dbOperationDeleteExpiredLinks, "error", started, err)
 		return 0, fmt.Errorf("delete expired links: %w", err)
 	}
 
 	deleted, err := result.RowsAffected()
 	if err != nil {
+		s.observeDBOperation(dbOperationDeleteExpiredLinks, "error", started, err)
 		return 0, fmt.Errorf("check expired link deletion result: %w", err)
 	}
+	s.observeDBOperation(dbOperationDeleteExpiredLinks, "success", started, nil)
 	return deleted, nil
+}
+
+func (s *linkStore) activeLinkCount(ctx context.Context) (int, error) {
+	var count int
+	started := time.Now()
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM links
+		WHERE expires_at > ?
+	`, s.now().UTC().Unix()).Scan(&count); err != nil {
+		s.observeDBOperation(dbOperationCountActiveLinks, "error", started, err)
+		return 0, fmt.Errorf("count active links: %w", err)
+	}
+	s.observeDBOperation(dbOperationCountActiveLinks, "success", started, nil)
+	return count, nil
 }
 
 func (s *linkStore) delete(code string) error {
 	resultForMetric := "error"
 	defer func() {
-		s.metrics.linkOperations.WithLabelValues("delete", resultForMetric).Inc()
+		s.metrics.linkOperations.WithLabelValues(dbOperationDelete, resultForMetric).Inc()
 	}()
 
 	started := time.Now()
@@ -368,32 +473,34 @@ func (s *linkStore) delete(code string) error {
 		WHERE code = ?
 	`, code)
 	if err != nil {
-		s.metrics.dbOperationDuration.WithLabelValues("delete", "error").Observe(time.Since(started).Seconds())
+		s.observeDBOperation(dbOperationDelete, "error", started, err)
 		return fmt.Errorf("delete link: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		s.metrics.dbOperationDuration.WithLabelValues("delete", "error").Observe(time.Since(started).Seconds())
+		s.observeDBOperation(dbOperationDelete, "error", started, err)
 		return fmt.Errorf("check delete result: %w", err)
 	}
 	if rowsAffected == 0 {
-		s.metrics.dbOperationDuration.WithLabelValues("delete", "not_found").Observe(time.Since(started).Seconds())
+		s.observeDBOperation(dbOperationDelete, "not_found", started, nil)
 		resultForMetric = "not_found"
 		return ErrLinkNotFound
 	}
 
-	s.metrics.dbOperationDuration.WithLabelValues("delete", "success").Observe(time.Since(started).Seconds())
+	s.observeDBOperation(dbOperationDelete, "success", started, nil)
 	resultForMetric = "success"
 	return nil
 }
 
 func (s *linkStore) list() ([]Link, error) {
+	started := time.Now()
 	rows, err := s.db.Query(`
 		SELECT code, destination_url, created_at, expires_at, redirect_count
 		FROM links
 	`)
 	if err != nil {
+		s.observeDBOperation(dbOperationListLinks, "error", started, err)
 		return nil, fmt.Errorf("list links: %v", err)
 	}
 	defer rows.Close()
@@ -411,6 +518,7 @@ func (s *linkStore) list() ([]Link, error) {
 			&expiresAt,
 			&link.RedirectCount,
 		); err != nil {
+			s.observeDBOperation(dbOperationListLinks, "error", started, err)
 			return nil, fmt.Errorf("scan link: %w", err)
 		}
 
@@ -425,8 +533,10 @@ func (s *linkStore) list() ([]Link, error) {
 	}
 
 	if err := rows.Err(); err != nil {
+		s.observeDBOperation(dbOperationListLinks, "error", started, err)
 		return nil, fmt.Errorf("iterate links: %w", err)
 	}
 
+	s.observeDBOperation(dbOperationListLinks, "success", started, nil)
 	return links, nil
 }

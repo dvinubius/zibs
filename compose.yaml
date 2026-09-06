@@ -50,9 +50,35 @@ services:
       - production
     depends_on:
       - zibs
+      - node-exporter
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - app-edge
+
+  # Host metrics stay on the private app-edge network. The exporter receives
+  # only read-only views of the host filesystems and has no published port.
+  node-exporter:
+    image: prom/node-exporter:v1.11.1
+    profiles:
+      - production
+    command:
+      - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      # The VM has one capacity-relevant filesystem: its ext4 root. Exclude
+      # pseudo-filesystems, Docker overlay mounts, and the EFI boot partition.
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker|boot/efi)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|bpf|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|sysfs|tmpfs|tracefs)$$
+    volumes:
+      - /:/host:ro,rslave
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     networks:
       - app-edge
@@ -104,6 +130,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the deployment environment.}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: "30s"
     # Operator access is through an SSH tunnel to the VM, not the public network.
     ports:
       - "127.0.0.1:3000:3000"

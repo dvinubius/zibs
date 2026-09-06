@@ -65,7 +65,7 @@ exactly once:
   "createdAt":"2026-08-31T12:00:00Z",
   "maxUses":5,
   "useCount":0,
-  "token":"ust_<secret>"
+  "token":"zib_<secret>"
 }
 ```
 

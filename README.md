@@ -19,15 +19,18 @@ flowchart LR
     subgraph vm[one VM · Docker Compose]
         caddy[Caddy<br/>TLS + reverse proxy] -->|private network| zibs[zibs<br/>Go service]
         zibs --> db[(SQLite)]
-        zibs -.->|metrics · logs| obs[Prometheus · Alloy<br/>Loki · Grafana]
+        zibs -.->|metrics · logs| obs[Prometheus · Alloy<br/>Loki · Grafana<br/>- - - includes - - -<br/>services, network attachments, volumes]
         obs -.->|shared public dashboard| caddy
     end
+
+    classDef simplified stroke-dasharray: 5 5;
+    class obs simplified;
 ```
 
 Caddy is the only public entry point; the telemetry stack is private except for
 the one externally shared dashboard.
 
-This diagram is strongly simplified. The full picture — networks, volumes, port
+This diagram is strongly simplified. The full picture — observability services, networks, volumes, port
 boundaries — is in [deployment architecture](docs/deployment-architecture.md)
 and [observability](docs/observability.md).
 
@@ -62,7 +65,9 @@ go test -count=1 ./...
 ## Documentation
 
 The [documentation guide](docs/README.md) covers the HTTP API, creation
-frontend, service design, deployment, database backups, and observability.
+frontend, service design, deployment, database backups, and observability. For
+the current monitoring boundary and intentionally postponed work, start with
+[Observability](docs/observability.md) and [deferred observability work](docs/v2-deferred-observability.md).
 
 ## License
 

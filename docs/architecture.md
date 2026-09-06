@@ -44,9 +44,10 @@ and forwards normal application traffic to the public listener. The metrics
 listener is private and is scraped by Prometheus; it is never routed through
 the public proxy.
 
-The Prometheus, Loki, Alloy, and Grafana portion is the deployment target for
-the telemetry-integration milestone. The service already exposes the private
-metrics listener and emits JSON logs to standard output.
+Prometheus, Loki, Alloy, and Grafana are deployed as the production telemetry
+stack. The service exposes the private metrics listener and emits structured
+JSON logs to standard output; see [Observability](observability.md) for the
+current metric set, dashboards, access boundaries, and operating runbooks.
 
 ## Application structure
 

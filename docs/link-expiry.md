@@ -46,9 +46,11 @@ The service exposes:
 - `zibs_expiry_cleanup_duration_seconds` with a `result` label for
   sweep timing and failures.
 
-The cleanup worker logs successful sweeps and failures. Alert on cleanup
-failures, but treat a successful redirect-time expiry check as the primary
-availability and correctness safeguard.
+The cleanup worker logs successful sweeps and failures. Alerting is not
+configured yet; until it is, review cleanup failures in the private operator
+dashboard and Loki logs. A successful redirect-time expiry check remains the
+primary availability and correctness safeguard. See [deferred observability
+work](v2-deferred-observability.md) for the criteria before alerting is added.
 
 ## Tests and deployment checks
 

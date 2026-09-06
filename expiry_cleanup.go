@@ -14,13 +14,16 @@ func runExpiryCleanup(ctx context.Context, store *linkStore, interval time.Durat
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				metrics.expiryCleanupDuration.WithLabelValues("error").Observe(time.Since(started).Seconds())
-				logger.Error("expiry cleanup failed", "error", err)
+				logger.Error("expiry cleanup failed",
+					"event", "expiry_cleanup_failed",
+					"error_category", "database",
+				)
 			}
 			return
 		}
 		metrics.expiredLinksDeleted.Add(float64(deleted))
 		metrics.expiryCleanupDuration.WithLabelValues("success").Observe(time.Since(started).Seconds())
-		logger.Info("expiry cleanup completed", "deleted", deleted)
+		logger.Info("expiry cleanup completed", "event", "expiry_cleanup_completed", "deleted", deleted)
 	}
 
 	select {

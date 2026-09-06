@@ -106,6 +106,10 @@ func run(ctx context.Context, address, metricsAddress, databasePath, adminToken 
 	if err := registerDBStatsMetrics(registry, db); err != nil {
 		return fmt.Errorf("register database metrics: %w", err)
 	}
+	store := newLinkStore(db, metrics, logger)
+	if err := registerActiveLinksMetric(registry, store); err != nil {
+		return fmt.Errorf("register active links metric: %w", err)
+	}
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -117,7 +121,6 @@ func run(ctx context.Context, address, metricsAddress, databasePath, adminToken 
 		return fmt.Errorf("listen for metrics on %s: %w", metricsAddress, err)
 	}
 
-	store := newLinkStore(db, metrics)
 	server := &http.Server{
 		Handler:           logRequests(logger, metrics, newHandler(store, adminToken)),
 		ReadHeaderTimeout: 5 * time.Second,
