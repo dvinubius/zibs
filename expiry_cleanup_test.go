@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -140,7 +139,7 @@ func TestExpiryCleanupRecordsError(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		runExpiryCleanup(ctx, store, time.Hour, slog.New(slog.NewTextHandler(&logs, nil)), metrics)
+		runExpiryCleanup(ctx, store, time.Hour, slog.New(slog.NewJSONHandler(&logs, nil)), metrics)
 	}()
 
 	deadline := time.Now().Add(time.Second)
@@ -156,8 +155,15 @@ func TestExpiryCleanupRecordsError(t *testing.T) {
 	cancel()
 	<-done
 
-	if !strings.Contains(logs.String(), "expiry cleanup failed") {
-		t.Errorf("logs = %q, want cleanup failure", logs.String())
+	entry := decodeJSONLog(t, logs.Bytes())
+	if got, want := entry["msg"], "expiry cleanup failed"; got != want {
+		t.Errorf("msg = %#v, want %q", got, want)
+	}
+	if got, want := entry["event"], "expiry_cleanup_failed"; got != want {
+		t.Errorf("event = %#v, want %q", got, want)
+	}
+	if got, want := entry["error_category"], "database"; got != want {
+		t.Errorf("error_category = %#v, want %q", got, want)
 	}
 }
 

@@ -168,6 +168,7 @@
     {
       "id": 4,
       "title": "5xx responses in selected period",
+      "description": "Open the bounded private Loki query to inspect completed requests classified as server errors in this dashboard time range.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -184,6 +185,13 @@
           "refId": "A",
           "expr": "sum(increase(zibs_http_requests_total{status=~\"5..\"}[$__range])) or vector(0)",
           "legendFormat": "5xx"
+        }
+      ],
+      "links": [
+        {
+          "title": "Inspect server errors in Loki",
+          "url": "/explore?schemaVersion=1&panes=%7B%22logs%22%3A%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice%3D%5C%22zibs%5C%22%7D%20%7C%20json%20%7C%20error_category%3D%5C%22server%5C%22%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D",
+          "targetBlank": false
         }
       ],
       "fieldConfig": {
@@ -356,7 +364,7 @@
     {
       "id": 9,
       "title": "Request latency (normal range)",
-      "description": "Rolling average, p50, and p95, visually capped so isolated slow requests do not obscure normal work. Inspect the slow-request panel and private logs for durations above the cap. p99 is intentionally omitted at this traffic volume.",
+      "description": "Rolling average, p50, and p95, visually capped so isolated slow requests do not obscure normal work. Use the bounded private Loki link for completed requests taking at least one second. p99 is intentionally omitted at this traffic volume.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -389,6 +397,13 @@
           "refId": "C",
           "expr": "histogram_quantile(0.95, sum by (le) (rate(zibs_http_request_duration_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p95"
+        }
+      ],
+      "links": [
+        {
+          "title": "Inspect requests taking at least 1 s in Loki",
+          "url": "/explore?schemaVersion=1&panes=%7B%22logs%22%3A%7B%22datasource%22%3A%7B%22uid%22%3A%22loki%22%2C%22type%22%3A%22loki%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice%3D%5C%22zibs%5C%22%7D%20%7C%20json%20%7C%20duration_ms%20%3E%3D%201000%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D",
+          "targetBlank": false
         }
       ]
     },

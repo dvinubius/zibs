@@ -158,9 +158,18 @@ remain out of metric labels.
 
 ### Logs
 
-The production logger writes JSON to standard output. Application request
-records include method, path, status, and duration. Startup, shutdown, and
-expiry-cleanup events are also logged.
+The production logger writes JSON to standard output. Completed-request records
+include a bounded route, raw path (without its query string), method, status,
+and `duration_ms`; failed requests also have the bounded `error_category`
+(`client` or `server`). Raw paths retain short codes and scanner probes for
+private operator diagnosis. Logs intentionally do not include query strings,
+bearer tokens, request bodies, or destination URLs.
+
+SQLite operation failures additionally record a bounded operation and error
+category plus the underlying error text. Store queries use parameter binding, so
+their error text does not interpolate a short code, destination URL, token, or
+other request value. These records are private diagnostic data, not Loki labels.
+Startup, shutdown, and expiry-cleanup events are also logged.
 
 The production Compose profile uses Grafana Alloy to collect only zibs's
 container stdout and send it to Loki. Alloy discovers the zibs service through
@@ -179,6 +188,12 @@ Request-specific data remains JSON fields, not Loki labels. This preserves
 query usefulness without creating unbounded indexed label values. Loki stores
 these logs in its persistent `loki-data` volume for 14 days; Alloy stores its
 read positions in `alloy-data` so it can resume after a restart.
+
+The private operator dashboard links its 5xx and latency panels to bounded Loki
+queries for the selected dashboard time range. Those links query only
+server-classified completed requests or requests with `duration_ms >= 1000`.
+They must remain on the private operator dashboard; the public dashboard must
+not link to Loki or expose logs.
 
 ## Metrics access boundary
 

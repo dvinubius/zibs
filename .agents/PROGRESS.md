@@ -3,7 +3,7 @@
 ## Current state
 
 - Branch: `refine-observability`
-- Status: Phase 5 is complete and production-validated. Phases 4 and 6 are
+- Status: Phase 7 is complete and production-validated. Phases 4 and 6 are
   deferred until the service has materially higher usage.
 
 ## Working files
@@ -30,10 +30,10 @@
 
 ## Next step
 
-Phase 7 — logs and dashboard navigation.
+Phase 8 — alerting.
 
-Add stable structured log fields, preserve the boundary against tokens and
-destination URLs, and add bounded private Grafana links from selected panels to
-Loki. Add request IDs only if the resulting multi-event flows need a real join
-key. Phases 4 and 6 are intentionally deferred; see
-`.agents/deferred-observability-work.md`.
+Choose an SMTP or transactional-email sender for `zibs_alerts@dinubarbu.com`
+and a credential-storage approach outside the repository. Then add and test
+low-traffic-aware alerts for zibs availability, failed Prometheus scrapes,
+SQLite busy/locked errors, and low disk space. Phases 4 and 6 remain deferred;
+see `.agents/deferred-observability-work.md`.

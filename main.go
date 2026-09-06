@@ -106,7 +106,7 @@ func run(ctx context.Context, address, metricsAddress, databasePath, adminToken 
 	if err := registerDBStatsMetrics(registry, db); err != nil {
 		return fmt.Errorf("register database metrics: %w", err)
 	}
-	store := newLinkStore(db, metrics)
+	store := newLinkStore(db, metrics, logger)
 	if err := registerActiveLinksMetric(registry, store); err != nil {
 		return fmt.Errorf("register active links metric: %w", err)
 	}

@@ -124,17 +124,33 @@ func logRequests(logger *slog.Logger, metrics *metrics, next http.Handler) http.
 			status = http.StatusOK
 		}
 
-		// metrics
 		route := routeLabel(req)
+		// metrics
 		metrics.httpRequests.WithLabelValues(route, req.Method, strconv.Itoa(status)).Inc()
 		metrics.httpRequestDuration.WithLabelValues(route, req.Method).Observe(time.Since(started).Seconds())
 
-		// logging
-		logger.Info("request completed",
-			"method", req.Method,
-			"path", req.URL.Path,
-			"status", status,
-			"duration", time.Since(started),
-		)
+		attributes := []slog.Attr{
+			slog.String("event", "request_completed"),
+			slog.String("route", route),
+			slog.String("path", req.URL.Path),
+			slog.String("method", req.Method),
+			slog.Int("status", status),
+			slog.Int64("duration_ms", time.Since(started).Milliseconds()),
+		}
+		if category := requestErrorCategory(status); category != "" {
+			attributes = append(attributes, slog.String("error_category", category))
+		}
+		logger.LogAttrs(req.Context(), slog.LevelInfo, "request completed", attributes...)
 	})
+}
+
+func requestErrorCategory(status int) string {
+	switch {
+	case status >= http.StatusInternalServerError:
+		return "server"
+	case status >= http.StatusBadRequest:
+		return "client"
+	default:
+		return ""
+	}
 }

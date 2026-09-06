@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -19,7 +20,7 @@ import (
 
 func TestLogRequests(t *testing.T) {
 	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
 	metrics, _ := newTestMetrics(t)
 	handler := logRequests(logger, metrics, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -29,16 +30,26 @@ func TestLogRequests(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	for _, want := range []string{
-		`msg="request completed"`,
-		"method=GET",
-		"path=/health",
-		"status=204",
-		"duration=",
+	entry := decodeJSONLog(t, logs.Bytes())
+	for field, want := range map[string]any{
+		"msg":    "request completed",
+		"event":  "request_completed",
+		"route":  "/health",
+		"method": http.MethodGet,
+		"status": float64(http.StatusNoContent),
 	} {
-		if !strings.Contains(logs.String(), want) {
-			t.Errorf("log = %q, want it to contain %q", logs.String(), want)
+		if got := entry[field]; got != want {
+			t.Errorf("log field %q = %#v, want %#v", field, got, want)
 		}
+	}
+	if _, ok := entry["duration_ms"].(float64); !ok {
+		t.Errorf("duration_ms = %#v, want JSON number", entry["duration_ms"])
+	}
+	if got, want := entry["path"], "/health"; got != want {
+		t.Errorf("path = %#v, want %q", got, want)
+	}
+	if _, ok := entry["error_category"]; ok {
+		t.Errorf("successful request has error_category: %#v", entry)
 	}
 }
 
@@ -79,7 +90,7 @@ func TestLogRequestsDoesNotLogBearerTokens(t *testing.T) {
 			var logs bytes.Buffer
 			metrics, _ := newTestMetrics(t)
 			handler := logRequests(
-				slog.New(slog.NewTextHandler(&logs, nil)),
+				slog.New(slog.NewJSONHandler(&logs, nil)),
 				metrics,
 				newTestHandler(t, store),
 			)
@@ -95,8 +106,51 @@ func TestLogRequestsDoesNotLogBearerTokens(t *testing.T) {
 			if strings.Contains(logs.String(), tc.token) {
 				t.Errorf("request log contains bearer token")
 			}
+			if tc.body != "" && strings.Contains(logs.String(), tc.body) {
+				t.Errorf("request log contains request body")
+			}
 		})
 	}
+}
+
+func TestLogRequestsUsesBoundedRouteAndErrorCategory(t *testing.T) {
+	var logs bytes.Buffer
+	metrics, _ := newTestMetrics(t)
+	handler := logRequests(
+		slog.New(slog.NewJSONHandler(&logs, nil)),
+		metrics,
+		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}),
+	)
+
+	handler.ServeHTTP(
+		httptest.NewRecorder(),
+		httptest.NewRequest(http.MethodGet, "/private-short-code?destination=https://example.com/secret", nil),
+	)
+
+	entry := decodeJSONLog(t, logs.Bytes())
+	if got, want := entry["route"], "/{code}"; got != want {
+		t.Errorf("route = %#v, want %q", got, want)
+	}
+	if got, want := entry["path"], "/private-short-code"; got != want {
+		t.Errorf("path = %#v, want %q", got, want)
+	}
+	if got, want := entry["error_category"], "server"; got != want {
+		t.Errorf("error_category = %#v, want %q", got, want)
+	}
+	if strings.Contains(logs.String(), "destination=https://example.com/secret") {
+		t.Errorf("request log contains query string: %q", logs.String())
+	}
+}
+
+func decodeJSONLog(t *testing.T, data []byte) map[string]any {
+	t.Helper()
+	var entry map[string]any
+	if err := json.Unmarshal(data, &entry); err != nil {
+		t.Fatalf("decode JSON log: %v\nlog: %s", err, data)
+	}
+	return entry
 }
 
 func TestLogRequestsRecordsHTTPMetrics(t *testing.T) {

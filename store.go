@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
@@ -67,15 +68,22 @@ type linkStore struct {
 	generateCode          func() (string, error)
 	generateCreationToken func() (id, token string, err error)
 	now                   func() time.Time
+	logger                *slog.Logger
 }
 
-func newLinkStore(db *sql.DB, metrics *metrics) *linkStore {
+func newLinkStore(db *sql.DB, metrics *metrics, loggers ...*slog.Logger) *linkStore {
+	var logger *slog.Logger
+	if len(loggers) != 0 {
+		logger = loggers[0]
+	}
+
 	return &linkStore{
 		db:                    db,
 		metrics:               metrics,
 		generateCode:          generateShortCode,
 		generateCreationToken: generateCreationToken,
 		now:                   time.Now,
+		logger:                logger,
 	}
 }
 
@@ -86,6 +94,14 @@ func (s *linkStore) observeDBOperation(operation, result string, started time.Ti
 	s.metrics.dbOperationDuration.WithLabelValues(operation, result).Observe(time.Since(started).Seconds())
 	if err != nil {
 		s.metrics.dbErrors.WithLabelValues(operation, sqliteErrorKind(err)).Inc()
+		if s.logger != nil {
+			s.logger.Error("database operation failed",
+				"event", "database_operation_failed",
+				"operation", operation,
+				"error_category", sqliteErrorKind(err),
+				"error", err,
+			)
+		}
 	}
 }
 

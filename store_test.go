@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,6 +26,44 @@ func TestGenerateShortCode(t *testing.T) {
 				t.Fatalf("code %q contains character %q outside base-62 alphabet", code, character)
 			}
 		}
+	}
+}
+
+func TestStoreLogsDatabaseErrorWithoutRequestValues(t *testing.T) {
+	metrics, _ := newTestMetrics(t)
+	db, err := openDB(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := migrate(db); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close test database: %v", err)
+	}
+
+	var logs bytes.Buffer
+	store := newLinkStore(db, metrics, slog.New(slog.NewJSONHandler(&logs, nil)))
+	if _, err := store.get("private-short-code"); err == nil {
+		t.Fatal("get closed database error = nil, want error")
+	}
+
+	entry := decodeJSONLog(t, logs.Bytes())
+	for field, want := range map[string]any{
+		"msg":            "database operation failed",
+		"event":          "database_operation_failed",
+		"operation":      dbOperationGetLink,
+		"error_category": "other",
+	} {
+		if got := entry[field]; got != want {
+			t.Errorf("log field %q = %#v, want %#v", field, got, want)
+		}
+	}
+	if _, ok := entry["error"].(string); !ok {
+		t.Errorf("error = %#v, want error text", entry["error"])
+	}
+	if strings.Contains(logs.String(), "private-short-code") {
+		t.Errorf("database error log contains request value: %q", logs.String())
 	}
 }
 
