@@ -65,7 +65,9 @@ go test -count=1 ./...
 ## Documentation
 
 The [documentation guide](docs/README.md) covers the HTTP API, creation
-frontend, service design, deployment, database backups, and observability.
+frontend, service design, deployment, database backups, and observability. For
+the current monitoring boundary and intentionally postponed work, start with
+[Observability](docs/observability.md) and [deferred observability work](docs/v2-deferred-observability.md).
 
 ## License
 

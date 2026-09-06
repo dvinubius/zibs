@@ -213,7 +213,7 @@ Prometheus scrape requests are not application requests. The metrics handler
 therefore does not use the application's request logging or HTTP-metrics
 middleware.
 
-## Dashboards and alerts
+## Dashboards
 
 The production Compose profile runs Grafana on `127.0.0.1:3000` of the VM.
 It has no public port mapping, disables anonymous access and user sign-up, and
@@ -237,10 +237,9 @@ the repository at startup:
 
 `grafana-data` persists Grafana's own SQLite database. It retains the
 administrator account, externally-shared-dashboard state when that feature is
-enabled, user preferences, alerting configuration, and any future data not
-defined by the provisioning files. The provisioned data sources and dashboards
-remain reproducible from Git, but are not a replacement for that runtime
-state.
+enabled, user preferences, and any future data not defined by the provisioning
+files. The provisioned data sources and dashboards remain reproducible from
+Git, but are not a replacement for that runtime state.
 
 ### Telemetry smoke test
 
@@ -252,8 +251,14 @@ provisioned Prometheus and Loki data sources, and verifies both provisioned
 dashboard UIDs. This is an integration check of the complete metrics-and-logs
 path, not merely a container liveness check.
 
-Initial alerts should cover application unavailability, sustained 5xx
-responses, failed expiry cleanup, failed backups, and disk-space pressure.
+### Alerting status
+
+No alerts are configured yet. Alert delivery, credential storage, thresholds,
+and end-to-end notification testing are intentionally deferred until the
+project has an operational need for them. The operator dashboard and the
+telemetry smoke test remain the current ways to detect and investigate service
+conditions. See [deferred observability work](v2-deferred-observability.md)
+for the planned triggers and boundaries.
 
 ## Public dashboard
 
