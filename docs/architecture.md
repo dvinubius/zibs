@@ -76,7 +76,9 @@ application telemetry.
 validates the JSON body and destination URL, atomically consumes one allowed
 token use, creates an eight-character cryptographically random base-62 code,
 and inserts the link into SQLite. SQLite's primary-key constraint is the
-uniqueness authority; a rare collision is retried.
+uniqueness authority; a rare collision is retried. The response carries the
+new code and `usesLeft`, the token's remaining uses, which the same statement
+that consumed the use returns.
 
 Each link records its destination, creation time, expiry time, and redirect
 count. New links have a 90-day lifetime.
@@ -114,8 +116,9 @@ method and be restored into a fresh instance as part of routine verification.
 | Telemetry | `GET /metrics` on `127.0.0.1:9091` by default; `0.0.0.0:9091` in Compose | Private network only |
 
 The frontend is embedded in the binary and served from the same origin. It
-keeps a visitor-provided creation token only in memory and sends it in the
-`Authorization` header.
+sends a visitor's creation token in the `Authorization` header and keeps it in
+that browser's `localStorage` so it need not be retyped on the same device
+(ADR 0002, amendment 2026-09-07). The admin token never reaches a browser.
 
 ## Operational constraints
 

@@ -1,6 +1,6 @@
 # ADR 0002: Use cryptographic codes and bounded creation tokens
 
-**Status:** Accepted, amended 2026-08-30 and 2026-09-01 (see [Amendments](#amendment-2026-08-30))
+**Status:** Accepted, amended 2026-08-30, 2026-09-01, and 2026-09-07 (see [Amendments](#amendment-2026-08-30))
 
 ## Context
 
@@ -95,3 +95,19 @@ use-bounded, revocable token; this trades headroom that served no threat in
 this model for a much better copy-from-email experience. Storage is
 unchanged (SHA-256 hash only), so previously issued `ust_` tokens continue
 to validate.
+
+## Amendment 2026-09-07
+
+The creation page keeps the visitor's token in that browser's `localStorage`
+so it is entered once per device rather than once per link. Retyping a
+12-character secret for every link was the dominant friction in the flow, and
+the token is a low-value, use-bounded, revocable credential delivered by
+email — a credential the same visitor already stores in their inbox. This
+supersedes the "without persisting secrets in the browser" consequence
+below for creation tokens; the admin token is still never exposed to a
+browser.
+
+`POST /links` now also returns `usesLeft`, the token's remaining uses after
+that request, so the page can warn before a token is spent and drop a token
+that is. The count is only disclosed to a caller that just proved possession
+of the token, and reveals nothing about any other token.

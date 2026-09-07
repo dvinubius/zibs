@@ -33,8 +33,11 @@ curl -X POST http://localhost:8080/links \
 Successful creation returns `201 Created`:
 
 ```json
-{"code":"Ab3dE5fG"}
+{"code":"Ab3dE5fG","usesLeft":4}
 ```
+
+`usesLeft` is how many uses the creation token has after this request; the
+frontend uses it to warn before a token runs out.
 
 The destination may omit its scheme, in which case zibs stores it as `https`.
 Only absolute `http` and `https` URLs are allowed. The JSON body must contain
@@ -83,6 +86,9 @@ Content`; a missing resource returns `404 Not Found`.
 
 The `ADMIN_TOKEN` environment variable is the permanent operator credential.
 Creation tokens are limited-use credentials issued by the administrator. Never
-put either token in a URL, browser storage, or source control. Missing or invalid
-credentials receive an authorization failure; malformed requests receive `400`;
-unexpected failures receive `500`.
+put either token in a URL or in source control, and never put the admin token
+in browser storage. The creation page does keep a visitor's own creation token
+in that browser's `localStorage`, so it need not be retyped on that device —
+see [frontend](frontend.md). Missing or invalid credentials receive an
+authorization failure; malformed requests receive `400`; unexpected failures
+receive `500`.
