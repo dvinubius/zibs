@@ -49,11 +49,20 @@ func createLink(store *linkStore) http.HandlerFunc {
 			return
 		}
 
+		// usesLeft lets the page warn a visitor before their token runs out.
+		// It is omitted rather than reported as 0 if the request somehow
+		// reached the handler without passing the token middleware.
+		response := struct {
+			Code     string `json:"code"`
+			UsesLeft *int   `json:"usesLeft,omitempty"`
+		}{Code: link.Code}
+		if usesLeft, ok := creationTokenUsesLeft(req.Context()); ok {
+			response.UsesLeft = &usesLeft
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(struct {
-			Code string `json:"code"`
-		}{Code: link.Code})
+		json.NewEncoder(w).Encode(response)
 	}
 }
 

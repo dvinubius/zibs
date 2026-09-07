@@ -7,10 +7,12 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <script>
     (() => {
+      // Dark is the app's own default; the OS preference is not consulted.
+      // Only a visitor's explicit choice, kept from a previous visit, overrides it.
       let theme;
       try { theme = localStorage.getItem('theme'); } catch { /* storage unavailable */ }
       if (theme !== 'dark' && theme !== 'light') {
-        theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        theme = 'dark';
       }
       document.documentElement.dataset.theme = theme;
     })();
@@ -31,13 +33,15 @@
 
   <main>
     <h1>A friendly link shortener.</h1>
-    <p class="lede">
-      To use it, ask for a zib token and I'll send you one — personally.
-    </p>
-    <p class="lede">
-      No account, no costs. Just be human and say hi —
-      <a href="mailto:zibs@dinubarbu.com">zibs@dinubarbu.com</a>
-    </p>
+    <div id="intro">
+      <p class="lede">
+        To use it, ask for a zib token and I'll send you one — personally.
+      </p>
+      <p class="lede">
+        No account, no costs. Just be human and say hi —
+        <a href="mailto:zibs@dinubarbu.com">zibs@dinubarbu.com</a>
+      </p>
+    </div>
 
     <form id="shorten-form" method="post" action="">
       <div class="field">
@@ -45,7 +49,7 @@
         <input id="destination" type="text" inputmode="url" placeholder="paste your link"
                spellcheck="false" autocomplete="off">
       </div>
-      <div class="field">
+      <div class="field" id="token-field">
         <label class="field-label" for="token">zib token</label>
         <!-- Deliberately not type="password": the token is not an account
              credential, and a password field makes browsers offer to save it.
@@ -53,7 +57,13 @@
         <input id="token" type="text" class="input-masked" placeholder="paste your token"
                autocomplete="off" spellcheck="false" autocapitalize="off"
                data-1p-ignore data-lpignore="true" data-bwignore>
-        <p class="field-note">// no token yet? see above ↑</p>
+        <p id="token-hint" class="field-note">// no token yet? see above ↑</p>
+        <!-- Replaces the hint above once this device has a saved token: the
+             field is then filled in and disabled, and this says why. -->
+        <aside id="saved-token-note" class="saved-token-note" hidden>
+          <p>// using your saved zib token</p>
+          <p id="saved-token-uses-left" class="saved-token-uses-left" hidden></p>
+        </aside>
       </div>
       <div class="form-actions">
         <p id="error" class="error" role="alert" hidden></p>
@@ -70,6 +80,7 @@
           <button id="copy" class="button-copy" type="button">copy</button>
           <p id="copy-confirm" class="copy-confirm" hidden>✓ copied</p>
         </div>
+        <aside id="uses-left-note" class="uses-left-note" hidden></aside>
       </div>
       <p class="result-note">This page doesn't remember the link. Copy it before you go.</p>
     </section>
@@ -110,6 +121,12 @@
         <a href="mailto:zibs@dinubarbu.com">zibs@dinubarbu.com</a>
         and ask for a personal zib token. I'm sending it to you, then you can zib links with it.
       </p>
+      <p class="faq-q">// can you remember my token for me?</p>
+      <p class="faq-a">
+        Glad you asked, yes! After the first zib, the device remembers
+        the token and fills it in for you. The same token works on as 
+        many devices as you like.
+      </p>
       <p class="faq-q">// how long do short links last?</p>
       <p class="faq-a">
         90 days from creation — after that the short URL returns 404. The
@@ -118,13 +135,14 @@
       <p class="faq-q">// does my token expire?</p>
       <p class="faq-a">
         No. A token stays valid indefinitely but is good for a limited number
-        of uses (plenty). When it runs out, just ask for another.
+        of uses (plenty). The app will give you a heads-up once you're down 
+        to the last few uses. When your token does run out, just ask for another.
       </p>
       <p class="faq-q">// what does this page store about me?</p>
       <p class="faq-a">
-        Nothing. Your token travels only in the request header when creating
-        a link — never in cookies or storage — and the short URL is shown
-        exactly once.
+        Your token and your theme choice, in this browser's local storage on 
+        this device. Nothing about you leaves the device. Any zibbed URL is
+        shown exactly once. Clearing site data forgets the token.
       </p>
       <p class="faq-q">// what runs this?</p>
       <p class="faq-a">

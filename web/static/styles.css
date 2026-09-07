@@ -257,6 +257,16 @@ input:focus {
 
 input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
+/* The token field when it is filled in from this device's memory: still
+   legible, plainly not something to type in. opacity is pinned because iOS
+   dims disabled controls of its own accord. */
+input:disabled {
+  opacity: 1;
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--hairline) 55%, transparent);
+  cursor: default;
+}
+
 /* Masks the token like a password field without being one, so browsers
    don't offer to save it as a credential. */
 .input-masked { -webkit-text-security: disc; }
@@ -266,6 +276,26 @@ input::placeholder { color: var(--text-muted); opacity: 0.6; }
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* Takes the place of .field-note under the token field once the device has a
+   token saved, and is spaced and styled as that hint. */
+
+.saved-token-note {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.saved-token-note p { margin: 0; }
+
+/* The count line keeps the note's `//` prefix; the terminal's muted ink
+   carries it, and only the count itself takes the accent. */
+
+.saved-token-uses-left {
+  margin-top: 4px;
+  color: var(--terminal-muted);
 }
 
 /* Action row — error text on the left, button on the right. Under 500px it
@@ -394,6 +424,45 @@ input::placeholder { color: var(--text-muted); opacity: 0.6; }
   font-size: 14px;
   line-height: normal; /* match the button's UA line-height, not .terminal's 1.7 */
   color: var(--terminal-muted);
+}
+
+/* Low-token warning, inside the terminal under the link row. Muted like the
+   terminal prompt: it is a heads-up, not an error. A short hairline sets it
+   apart from the link above — drawn on a pseudo-element so the rule stays
+   200px wide while the note keeps the full width for its text. The color is
+   mixed from the terminal's own muted ink, which the flat --hairline is too
+   faint to match against either terminal surface. */
+
+.uses-left-note {
+  margin-top: 48px;
+  color: var(--terminal-muted);
+}
+
+/* The remaining-uses count is the one accented thing in either note; the
+   `//` and the words around it stay muted. --accent and --terminal-link are
+   the same Ember pair, so one rule serves the form card and the terminal. */
+
+.uses-left-count {
+  color: var(--accent);
+}
+
+/* The mailbox address in the spent-token note reads as a link; the em dash
+   before it stays part of the note's own mono voice. */
+
+.uses-left-note a {
+  color: var(--terminal-link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.uses-left-note::before {
+  content: "";
+  display: block;
+  width: 170px;
+  max-width: 100%;
+  height: 1px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--terminal-muted) 35%, transparent);
 }
 
 .result-note {

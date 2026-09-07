@@ -299,7 +299,7 @@ func TestAdminCanListCreationTokenMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue used token: %v", err)
 	}
-	if err := store.consumeCreationToken(usedSecret); err != nil {
+	if _, err := store.consumeCreationToken(usedSecret); err != nil {
 		t.Fatalf("consume token: %v", err)
 	}
 

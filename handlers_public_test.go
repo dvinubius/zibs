@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -325,5 +326,61 @@ func TestErrorsAreHandledWithCleanExit(t *testing.T) {
 	}
 	if body := rec.Body.String(); body != "internal server error\n" {
 		t.Errorf("body = %q, want %q", body, "internal server error\n")
+	}
+}
+
+func TestCreateLinkReportsRemainingTokenUses(t *testing.T) {
+	store := newTestStore(t)
+	_, token, err := store.issueCreationToken("three links", 3)
+	if err != nil {
+		t.Fatalf("issue creation token: %v", err)
+	}
+	handler := newTestHandler(t, store)
+
+	for attempt, wantUsesLeft := range []int{2, 1, 0} {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/links",
+			bytes.NewBufferString(`{"url":"https://example.com"}`),
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("attempt %d status = %d, want %d", attempt+1, rec.Code, http.StatusCreated)
+		}
+		var response struct {
+			Code     string `json:"code"`
+			UsesLeft *int   `json:"usesLeft"`
+		}
+		if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+			t.Fatalf("attempt %d decode response: %v", attempt+1, err)
+		}
+		if response.UsesLeft == nil {
+			t.Fatalf("attempt %d: usesLeft missing from response", attempt+1)
+		}
+		if *response.UsesLeft != wantUsesLeft {
+			t.Errorf("attempt %d usesLeft = %d, want %d", attempt+1, *response.UsesLeft, wantUsesLeft)
+		}
+	}
+}
+
+func TestConsumeCreationTokenRejectsRevokedToken(t *testing.T) {
+	store := newTestStore(t)
+	issued, token, err := store.issueCreationToken("revoked", 5)
+	if err != nil {
+		t.Fatalf("issue creation token: %v", err)
+	}
+	if err := store.revokeCreationToken(issued.ID); err != nil {
+		t.Fatalf("revoke creation token: %v", err)
+	}
+
+	usesLeft, err := store.consumeCreationToken(token)
+	if !errors.Is(err, ErrCreationTokenInvalid) {
+		t.Fatalf("error = %v, want %v", err, ErrCreationTokenInvalid)
+	}
+	if usesLeft != 0 {
+		t.Errorf("usesLeft = %d, want 0", usesLeft)
 	}
 }

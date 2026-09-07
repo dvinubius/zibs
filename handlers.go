@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"errors"
 	"log/slog"
@@ -30,6 +31,19 @@ func requireBearerToken(token string, next http.Handler) http.Handler {
 	})
 }
 
+// creationTokenUsesLeftKey carries the token uses remaining after this request
+// from the authorization middleware, which spends the use, to the handler,
+// which reports the remainder to the caller.
+type creationTokenUsesLeftKey struct{}
+
+// creationTokenUsesLeft reports how many uses the request's creation token has
+// left. The second result is false when the request did not pass through
+// requireCreationToken.
+func creationTokenUsesLeft(ctx context.Context) (int, bool) {
+	usesLeft, ok := ctx.Value(creationTokenUsesLeftKey{}).(int)
+	return usesLeft, ok
+}
+
 func requireCreationToken(store *linkStore, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		token, ok := bearerToken(req)
@@ -39,7 +53,8 @@ func requireCreationToken(store *linkStore, next http.Handler) http.Handler {
 			return
 		}
 
-		if err := store.consumeCreationToken(token); err != nil {
+		usesLeft, err := store.consumeCreationToken(token)
+		if err != nil {
 			if errors.Is(err, ErrCreationTokenInvalid) {
 				w.Header().Set("WWW-Authenticate", "Bearer")
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -49,7 +64,8 @@ func requireCreationToken(store *linkStore, next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, req)
+		ctx := context.WithValue(req.Context(), creationTokenUsesLeftKey{}, usesLeft)
+		next.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
 

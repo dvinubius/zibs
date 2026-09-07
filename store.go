@@ -237,32 +237,33 @@ func (s *linkStore) issueCreationToken(label string, maxUses int) (CreationToken
 	}
 }
 
-func (s *linkStore) consumeCreationToken(token string) error {
+// consumeCreationToken spends one use of a token and reports how many uses the
+// token has left afterwards. The remaining count is surfaced to the frontend so
+// it can warn before a token runs out; it comes straight from the UPDATE via
+// RETURNING, so it is consistent with the use it just recorded.
+func (s *linkStore) consumeCreationToken(token string) (int, error) {
 	hash := sha256.Sum256([]byte(token))
 	started := time.Now()
-	result, err := s.db.Exec(`
+	var usesLeft int
+	err := s.db.QueryRow(`
 		UPDATE creation_tokens
 		SET use_count = use_count + 1
 		WHERE token_hash = ?
 			AND revoked_at IS NULL
 			AND use_count < max_uses
-	`, hash[:])
+		RETURNING max_uses - use_count
+	`, hash[:]).Scan(&usesLeft)
+	if errors.Is(err, sql.ErrNoRows) {
+		s.observeDBOperation(dbOperationConsumeCreationToken, "invalid", started, nil)
+		return 0, ErrCreationTokenInvalid
+	}
 	if err != nil {
 		s.observeDBOperation(dbOperationConsumeCreationToken, "error", started, err)
-		return fmt.Errorf("consume creation token: %w", err)
+		return 0, fmt.Errorf("consume creation token: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		s.observeDBOperation(dbOperationConsumeCreationToken, "error", started, err)
-		return fmt.Errorf("check creation token result: %w", err)
-	}
-	if rowsAffected == 0 {
-		s.observeDBOperation(dbOperationConsumeCreationToken, "invalid", started, nil)
-		return ErrCreationTokenInvalid
-	}
 	s.observeDBOperation(dbOperationConsumeCreationToken, "success", started, nil)
-	return nil
+	return usesLeft, nil
 }
 
 func (s *linkStore) revokeCreationToken(id string) error {

@@ -2,7 +2,7 @@
 
 **zibs** is a friendly link shortener — small in scope, production-grade in shape. It runs live at [zibs.app](https://zibs.app).
 
-The app is free to use and requires a "zib" token, which you can request by email — personally.
+The app is free to use and requires a "zib" token, which you can request by email — personally. Each browser remembers the token after its first use, so it is entered once per device.
 
 Behind the one-page frontend sits a complete, self-hosted production service: a Go application with SQLite persistence, deployed as a hardened container behind a TLS-terminating reverse proxy on a single VM, with scripted deployments, verified database backups, and a **full observability stack** — Prometheus metrics, structured logs shipped through Alloy to Loki, and Grafana dashboards provisioned straight from this repository.
 
