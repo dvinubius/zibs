@@ -167,3 +167,21 @@ Grafana dashboard and its anonymous shared-dashboard API.
 **Why deferred:** the dashboard is intentionally small, uses saved aggregate
 queries, and has a fixed time range. Any future limit must not block required
 Grafana assets or public-dashboard API requests.
+
+## Traces
+
+**Potential change:** add private OpenTelemetry tracing: a root span for each
+incoming HTTP request, child spans for database and future outbound or
+asynchronous work, and trace IDs in structured logs. Send traces through a
+private collector to a trace backend, with Grafana providing the operator-only
+query interface.
+
+**Revisit when:** a request crosses a meaningful external or asynchronous
+boundary—such as an API, queue, worker, webhook, or multiple service
+instances—or an intermittent latency problem cannot be isolated with metrics
+and logs.
+
+**Why deferred:** a request currently remains within one Go process and its
+local SQLite database, so latency metrics and structured logs provide enough
+diagnostic detail. Tracing would add collection, storage, retention, sampling,
+and sensitive-attribute controls without proportionate operational value.
