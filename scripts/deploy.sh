@@ -90,6 +90,7 @@ rsync -az \
 	--exclude 'data/' \
 	--exclude '*.db*' \
 	--exclude '.env*' \
+	--exclude 'test-traffic/' \
 	--exclude 'bin/' \
 	--exclude 'coverage.out' \
 	-e "$ssh_command" \

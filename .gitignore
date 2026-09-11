@@ -25,6 +25,9 @@ docs/learning/*
 
 .dev-backups/
 
+# Production-only synthetic traffic harness and its administrator credential.
+test-traffic/
+
 
 
 .ignore
