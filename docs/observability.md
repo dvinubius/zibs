@@ -304,6 +304,8 @@ Then visit `http://localhost:3000`, sign in with `GRAFANA_ADMIN_USER` (default
 overview**. Do not expose port 3000 publicly or enable anonymous workspace
 access.
 
+Be mindful of other processes using port 3000 locally, whether through `localhost`, `127.0.0.1` or IPv6 [::1]. 
+
 ### Change the dashboard layout
 
 Both dashboards use Grafana's **Classic** JSON model and are provisioned from
