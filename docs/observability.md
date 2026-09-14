@@ -11,30 +11,29 @@ flowchart TB
     browser[Browser]
 
     subgraph host[Hetzner VM / Docker host]
-        subgraph compose[Docker Compose project]
-            caddy[Caddy<br/>TCP 80, 443<br/>UDP 443]
-            grafana[Grafana<br/>TCP 3000<br/>VM loopback only]
-            subgraph edge[app-edge Docker network]
-                caddyAppEdge[Caddy<br/>attachment]
-                zibs[zibs<br/>metrics: TCP 9091]
-                prometheus[Prometheus<br/>TCP 9090]
-                nodeExporter[node_exporter<br/>TCP 9100]
-                grafanaAppEdge["Grafana<br/>(attachment)"]
-            end
-            subgraph observability[observability Docker network — internal]
-                loki[Loki<br/>TCP 3100]
-                alloy[Alloy<br/>TCP 12345]
-                grafanaObservability["Grafana<br/>(attachment)"]
-            end
-            prometheusData[(prometheus-data<br/>metrics volume)]
-            lokiData[(loki-data<br/>14-day log volume)]
-            alloyData[(alloy-data<br/>read positions)]
-            grafanaData[(grafana-data<br/>Grafana state)]
+        grafana[Grafana<br/>TCP 3000<br/>VM loopback only]
+        subgraph edge[zibs_app-edge Docker network]
+            caddyAppEdge[Caddy<br/>attachment]
+            zibs[zibs<br/>metrics: TCP 9091]
+            prometheus[Prometheus<br/>TCP 9090]
+            nodeExporter[node_exporter<br/>TCP 9100]
+            grafanaAppEdge["Grafana<br/>(attachment)"]
         end
+        subgraph observability[observability Docker network — internal]
+            loki[Loki<br/>TCP 3100]
+            alloy[Alloy<br/>TCP 12345]
+            grafanaObservability["Grafana<br/>(attachment)"]
+        end
+        prometheusData[(prometheus-data<br/>metrics volume)]
+        lokiData[(loki-data<br/>14-day log volume)]
+        alloyData[(alloy-data<br/>read positions)]
+        grafanaData[(grafana-data<br/>Grafana state)]
+        caddy[Caddy<br/>TCP 80, 443<br/>UDP 443]
     end
 
     browser ==>|Operator SSH tunnel<br/>to VM loopback :3000| grafana
     browser ==>|HTTPS public shared-dashboard route| caddy
+    caddy -.-|network attachment| caddyAppEdge
     caddyAppEdge -->|reverse proxy the<br/>public Grafana dashboard| grafanaAppEdge
     prometheus -->|scrape /metrics TCP 9091| zibs
     prometheus -->|scrape host metrics TCP 9100| nodeExporter
@@ -43,7 +42,6 @@ flowchart TB
     alloy -->|push JSON logs| loki
     alloy -->|save read positions| alloyData
     loki -->|save logs| lokiData
-    caddy -.-|network attachment| caddyAppEdge
     grafana -.-|network attachment| grafanaAppEdge
     grafana -.-|network attachment| grafanaObservability
     grafanaAppEdge -->|query metrics| prometheus
@@ -54,8 +52,15 @@ flowchart TB
     class caddyAppEdge,grafanaAppEdge,grafanaObservability networkAttachment;
 ```
 
-The Compose `app-edge` network connects zibs, Caddy, Prometheus,
-node_exporter, and Grafana.
+> **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
+> predates the Caddy extraction. It shows an older topology; the current Caddy
+> service is managed separately from `/opt/caddy` and joins zibs's network
+> externally for its narrow public-dashboard route.
+
+The zibs Compose `app-edge` network connects zibs, Prometheus, node_exporter,
+and Grafana. The separate `/opt/caddy` project joins its Docker network
+(`zibs_app-edge`) externally to reach zibs and Grafana; it owns Caddy's public
+ports, routing, and certificate state.
 The internal-only `observability` network connects Alloy, Loki, and Grafana.
 Grafana joins both networks so it can query both data sources. Prometheus, Loki,
 Alloy, and zibs's metrics listener have no public host-port mappings. Grafana

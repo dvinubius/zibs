@@ -24,26 +24,6 @@ services:
     networks:
       - app-edge
 
-  caddy:
-    image: caddy:2.11.4-alpine
-    profiles:
-      - production
-    depends_on:
-      - zibs
-    environment:
-      CADDY_DOMAIN: ${CADDY_DOMAIN:-zibs.app}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    restart: unless-stopped
-    networks:
-      - app-edge
-
   prometheus:
     image: prom/prometheus:v3.13.2
     profiles:
@@ -145,8 +125,6 @@ services:
 
 volumes:
   zibs-data:
-  caddy-data:
-  caddy-config:
   prometheus-data:
   loki-data:
   alloy-data:

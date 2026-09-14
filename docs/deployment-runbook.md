@@ -33,8 +33,7 @@ For an application-only deployment, which exposes zibs only on VM loopback:
 ./scripts/deploy.sh
 ```
 
-For the complete production profile, including TLS reverse proxy and the
-observability stack:
+For the complete zibs production profile, including the observability stack:
 
 ```bash
 DEPLOY_ALL=1 ./scripts/deploy.sh
@@ -45,9 +44,12 @@ environment files, documentation, and Git metadata. It writes the required
 secrets to `/opt/zibs/.env` with mode `0600`, builds remotely, starts the
 selected Compose services, and verifies `http://127.0.0.1:8080/health`.
 
-With `DEPLOY_ALL=1`, it force-recreates profile containers without removing
-named volumes, waits for Loki and Alloy readiness, then runs the telemetry
-smoke test. See [Observability](observability.md) for what that test proves.
+With `DEPLOY_ALL=1`, it force-recreates zibs and observability profile
+containers without removing named volumes, waits for Loki and Alloy readiness,
+then runs the telemetry smoke test. It does not deploy, restart, or configure
+Caddy. Caddy is shared VPS infrastructure managed from `/opt/caddy`; use that
+project's README to validate, deploy, or reload ingress configuration. See
+[Observability](observability.md) for what the telemetry test proves.
 
 ### Convert a Grafana V2 layout export
 
@@ -116,6 +118,10 @@ After DNS and certificates have settled, confirm the public endpoint:
 ```bash
 curl --fail https://zibs.app/health
 ```
+
+The public check depends on the independently managed `/opt/caddy` service.
+If it fails while the loopback health check passes, inspect Caddy from
+`/opt/caddy`; do not rerun the zibs deployment as an ingress repair.
 
 For a full-profile deployment, also run:
 

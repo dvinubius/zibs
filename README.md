@@ -16,19 +16,32 @@ Behind the one-page frontend sits a complete, self-hosted production service: a 
 flowchart LR
     browser([Browser]) ==>|HTTPS| caddy
 
-    subgraph vm[one VM · Docker Compose]
-        caddy[Caddy<br/>TLS + reverse proxy] -->|private network| zibs[zibs<br/>Go service]
+    subgraph vm[one VM]
+        subgraph edge[zibs_app-edge network]
+            caddyAppEdge[Caddy<br/>attachment]
+            zibs[zibs<br/>Go service]
+        end
         zibs --> db[(SQLite)]
         zibs -.->|metrics · logs| obs[Prometheus · Alloy<br/>Loki · Grafana<br/>- - - includes - - -<br/>services, network attachments, volumes]
         obs -.->|shared public dashboard| caddy
+        caddy[Caddy<br/>shared ingress]
     end
 
+    caddy -.-|network attachment| caddyAppEdge
+    caddyAppEdge --> zibs
+
     classDef simplified stroke-dasharray: 5 5;
-    class obs simplified;
+    class caddyAppEdge,obs simplified;
 ```
 
-Caddy is the only public entry point; the telemetry stack is private except for
-the one externally shared dashboard.
+Caddy is the only public entry point, managed as the separate `/opt/caddy`
+shared-infrastructure project; zibs does not deploy or configure it. The
+telemetry stack is private except for the one externally shared dashboard.
+
+> **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
+> predates the Caddy extraction and therefore depicts a different deployment
+> topology. In the current deployment, Caddy is decoupled from zibs and managed
+> separately from `/opt/caddy`.
 
 This diagram is strongly simplified. The full picture — observability services, networks, volumes, port
 boundaries — is in [deployment architecture](docs/deployment-architecture.md)
