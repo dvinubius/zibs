@@ -55,8 +55,7 @@ project's README to validate, deploy, or reload ingress configuration. See
 
 For shared ingress changes, run `./scripts/deploy.sh` from the separate
 Hetzner-One checkout; its live project is `/opt/caddy`. This is independent
-of the zibs commands above. See [the network cutover record](caddy-network-cutover.md)
-for the migration and rollback procedure.
+of the zibs commands above.
 
 ### Convert a Grafana V2 layout export
 

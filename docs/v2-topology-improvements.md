@@ -1,213 +1,156 @@
 # V2 topology improvements
 
-> Network ownership was migrated first: Hetzner-One now owns `zibs-edge`.
-> The additional segmentation below remains future work; preserve the existing
-> application edge when moving telemetry to separate networks.
+## Status and sequence
 
-## Status
+Planned follow-up work; no observability migration has been deployed by this
+plan. The Caddy extraction is complete: Hetzner-One owns `zibs-edge` and
+`hooklook-edge`, and the applications join their respective networks externally.
 
-Deferred, independent follow-up work. This is not part of the Hetzner-One and
-Hooklook observability rollout.
+Before further zibs improvements, move Grafana out of both application
+projects into Hetzner-One and add host monitoring there. For the time being,
+zibs and Hooklook each retain their own Alloy, Loki, and Prometheus. Hetzner-One
+runs an additional Prometheus for host monitoring; it does not replace the
+application Prometheus servers.
 
-The current zibs production topology remains supported until this work is
-explicitly scheduled. During that interval, both zibs and Hetzner-One may run a
-node_exporter against the same VPS. That duplication is understood and
-temporary; avoiding it is not worth coupling the two rollouts.
+Further zibs network segmentation follows that platform migration. Collector
+centralization is outside this plan and requires a separate decision.
 
-## Why revisit the topology
+## Ownership after the platform migration
 
-There are two independent motivations.
-
-### Host monitoring no longer belongs to zibs
-
-Hetzner-One will own a separate node_exporter, host Prometheus, and host
-Grafana/dashboard. Once that platform path is deployed and verified,
-node_exporter no longer needs to be part of zibs.
-
-The later zibs change should remove:
-
-- the `node-exporter` Compose service;
-- the `node` scrape job from zibs Prometheus;
-- node-target assertions from zibs telemetry smoke tests;
-- VM CPU, memory, load, filesystem, disk-I/O, and network panels from zibs
-  dashboards;
-- zibs documentation that assigns host-health ownership to the application.
-
-This leaves one authoritative host dashboard and keeps the zibs dashboard
-focused on zibs application, process, SQLite, metrics, and logs.
-
-### The current network mixes unrelated trust and ownership boundaries
-
-The current platform-owned `zibs-edge` network contains the public application,
-Prometheus, node_exporter, Grafana, and the Caddy attachment. That is
-convenient, but it makes one network responsible for public ingress,
-application metrics scraping, host metrics scraping, private datasource
-queries, and public shared-dashboard routing.
-
-Every container on a Docker bridge can initiate connections to the other
-containers on that bridge. Read-only filesystems, dropped capabilities, and
-`no-new-privileges` do not remove that network reachability. The current shape
-therefore makes the intended connections less clear and gives a compromised
-public application more lateral access than it needs.
-
-Refining the segmentation improves both clarity and security:
-
-- Caddy reaches only the zibs application listener and the deliberately shared
-  Grafana dashboard surface;
-- zibs reaches its Prometheus on a dedicated metrics network but cannot
-  directly reach Loki or the private Grafana workspace;
-- private telemetry services communicate on an internal observability network;
-- each connection in the architecture corresponds to one documented purpose.
-
-Docker networks are not directional firewalls. zibs and Prometheus must share
-a metrics network, so either container can initiate traffic to the other.
-Prometheus deliberately bridges the metrics and observability networks. The
-useful improvement is removing unrelated services from the public edge and
-keeping Loki and the private Grafana workspace unreachable from zibs.
-
-## Target topology
+| Component | Owner | Responsibility |
+| --- | --- | --- |
+| Shared Grafana | Hetzner-One | Both applications' dashboards, host dashboard, datasource provisioning, credentials, runtime state |
+| Host node_exporter and Prometheus | Hetzner-One | VPS metrics and host-metric history |
+| zibs Alloy, Loki, Prometheus | zibs | zibs logs, metrics, and existing history |
+| Hooklook Alloy, Loki, Prometheus | Hooklook | Hooklook logs, metrics, and existing history |
+| Caddy and both edge networks | Hetzner-One | Shared ingress and narrow public-dashboard routing |
 
 ```mermaid
 flowchart LR
-    client[Public client] -->|HTTPS| caddy[Caddy]
-
-    subgraph platform[Hetzner-One networks]
-        edge[zibs-edge]
-        dashboardEdge[zibs-dashboard-edge]
+    subgraph platform[Hetzner-One]
+        grafana[Shared Grafana]
+        hostProm[Host Prometheus]
+        node[Host node_exporter]
+        caddy[Caddy]
+        hostProm -->|scrape| node
+        grafana -->|query host metrics| hostProm
+        caddy -->|narrow public dashboard route| grafana
     end
-
-    subgraph zibsProject[zibs Compose project]
+    subgraph zibsProject[zibs]
+        zp[Prometheus]
+        za[Alloy]
+        zl[Loki]
         app[zibs]
-        prometheus[Prometheus]
-        alloy[Alloy]
-        loki[Loki]
-        grafana[Grafana<br/>127.0.0.1:3000]
-        metrics[zibs-metrics]
-        observability[zibs-observability<br/>internal]
+        zp -->|scrape| app
+        za -->|ship app logs| zl
     end
-
-    caddy --- edge --- app
-    caddy --- dashboardEdge --- grafana
-    app --- metrics --- prometheus
-    prometheus --- observability
-    alloy --- observability
-    loki --- observability
-    grafana --- observability
+    subgraph hooklookProject[Hooklook]
+        hp[Prometheus]
+        ha[Alloy]
+        hl[Loki]
+        hooklook[Hooklook]
+        hp -->|scrape| hooklook
+        ha -->|ship app logs| hl
+    end
+    grafana -->|private queries| zp
+    grafana -->|private queries| zl
+    grafana -->|private queries| hp
+    grafana -->|private queries| hl
 ```
 
-The platform project owns the two external networks Caddy needs. The zibs
-project declares them as external and owns its private metrics and
-observability networks.
+## Platform migration prerequisites and contracts
 
-### Intended connections
+The Hetzner-One migration must preserve the existing zibs public dashboard
+URL and sharing state, dashboard and datasource UIDs, and private operator
+access. Migrate Grafana state with a consistent backup; never mount its SQLite
+volume in two running Grafana instances. Preserve the Hooklook dashboard and
+its datasource references when combining provisioning.
 
-| Source | Destination | Network | Purpose |
-| --- | --- | --- | --- |
-| Caddy | zibs `:8080` | `zibs-edge` | Public application reverse proxy |
-| Caddy | Grafana `:3000` | `zibs-dashboard-edge` | Narrow externally shared dashboard routes |
-| Prometheus | zibs `:9091` | `zibs-metrics` | Private application metrics scrape |
-| Grafana | Prometheus `:9090` | `zibs-observability` | Metrics queries |
-| Grafana | Loki `:3100` | `zibs-observability` | Private log queries |
-| Alloy | Loki `:3100` | `zibs-observability` | Private log delivery |
+Shared Grafana needs private access to both apps' Prometheus and Loki, plus
+Hetzner-One Prometheus. Choose explicit, distinct backend aliases: both apps
+use service names such as `prometheus` and `loki`, so bare names are ambiguous
+across shared networks. Record network ownership and aliases in the platform
+migration plan before implementation.
 
-No node_exporter remains in the zibs project. Host metrics are viewed in the
-Hetzner-One Grafana workspace instead.
+Caddy must reach shared Grafana through an unambiguous alias. Preserve the
+existing narrow public-dashboard route; normal Grafana workspace/API routes,
+Prometheus, Loki, and application metrics remain private. Publish operator
+access only on loopback, with SSH tunneling. Caddy access/error log collection
+remains a Hetzner-One concern and is not part of zibs's Alloy pipeline.
 
-## Repository changes
+Once shared Grafana is verified, remove each app's Grafana service and transfer
+provisioning/deployment ownership to Hetzner-One. Update application deployment
+scripts, credentials, smoke tests, and runbooks so subsequent deployments
+cannot recreate local Grafana or require obsolete Grafana credentials.
+Retain old Grafana volumes for rollback rather than deleting them at cutover.
 
-### Compose and networks
+## Later zibs cleanup
 
-- Remove the `node-exporter` service and its host mounts.
-- Further segment the broad `zibs-edge` network into:
-  - the existing platform-owned external `zibs-edge` for Caddy and zibs only;
-  - platform-owned external `zibs-dashboard-edge` for Caddy and Grafana;
-  - zibs-owned `metrics` for zibs and Prometheus;
-  - zibs-owned internal `observability` for Prometheus, Alloy, Loki, and
-    Grafana.
-- Make Prometheus dual-homed between `metrics` and `observability`.
-- Keep Grafana on `127.0.0.1:3000` and attach it only to `observability` and
-  `zibs-dashboard-edge`.
-- Preserve all existing named volumes and service data.
+### Host monitoring
 
-### Metrics, logs, and dashboards
+After Hetzner-One's node_exporter, Prometheus, and host dashboard are healthy,
+remove zibs's node_exporter, its `node` scrape job, host dashboard panels, and
+node-target smoke-test assertions. Temporary duplicate host scraping during
+migration is acceptable. Keep zibs's application Prometheus and its existing
+volume; do not split or copy host series into the platform TSDB. The platform
+Prometheus begins its own host-metric history.
 
-- Remove the node scrape job from `prometheus.yml`.
-- Remove host panels and node target queries from the operator dashboard.
-- Keep zibs process/runtime, HTTP, domain-operation, SQLite, cleanup, and log
-  panels.
-- Preserve the public metrics dashboard and its externally shared-dashboard
-  state.
-- Tighten Alloy discovery to match both the zibs Compose project and the zibs
-  service before forwarding logs to Loki.
+### Network segmentation
 
-Alloy still mounts the Docker socket and can inspect host-wide container
-metadata. Relabeling limits what it stores, not what the socket can expose.
-Changing that trust model requires a separate logging-driver or socket-proxy
-design.
+The current `zibs-edge` still connects zibs, Prometheus, node_exporter, Grafana,
+and Caddy. After Grafana moves and host monitoring is verified, narrow that
+edge to Caddy and zibs. Keep Hetzner-One's ownership of both application edge
+networks.
 
-### Operations and documentation
+Give zibs and its Prometheus a private metrics network. Keep Alloy and Loki on
+private observability networking, and provide shared Grafana a documented
+private query path to zibs Prometheus and Loki. Prometheus needs both its
+scrape and query paths. Exact network names and cross-project ownership should
+follow the implemented Hetzner-One Grafana migration, rather than introducing
+a competing network scheme here.
 
-- Remove node checks from `scripts/telemetry-smoke-test.sh`.
-- Keep the zibs smoke test focused on application metrics, logs, datasources,
-  dashboards, and Grafana.
-- Update deployment architecture, observability, deployment, diagnostics,
-  port inventory, and rollback documentation.
-- Link operators to the Hetzner-One runbook for host-dashboard access and host
-  diagnostics.
+Docker bridges are bidirectional connectivity, not per-port firewalls.
+`expose` does not restrict listeners. Avoid attaching the public application
+to the central Grafana query network, and verify connectivity after removing
+old attachments.
 
-## Migration prerequisites
+### Application logs and verification
 
-- Hetzner-One host Prometheus, node_exporter, and the host dashboard are
-  deployed and have passed their independent smoke test.
-- Hetzner-One has created the external `zibs-edge` and
-  `zibs-dashboard-edge` networks.
-- Caddy can join `zibs-dashboard-edge` while retaining its existing
-  `zibs-edge` attachment.
-- Current zibs Compose/configuration and named-volume inventories have been
-  recorded for rollback.
-- The normal zibs SQLite and Grafana backups are current and restore-verified.
+Keep the zibs Alloy/Loki pipeline and its retained data. A later hardening
+change can restrict Docker discovery by both Compose project and service.
+Filtering limits collection, not the host-wide access granted by the Docker
+socket; changing that trust boundary is separate work.
 
-## Rollout sequence
+Application-owned smoke tests should verify application health, scraping, and
+log ingestion. Hetzner-One should verify shared Grafana, all five datasources,
+the application and host dashboards, and the public shared-dashboard route.
+Update docs and deployment scripts together with each ownership change.
 
-1. Confirm the Hetzner-One node target and host dashboard are healthy.
-2. Attach Caddy to `zibs-dashboard-edge`, retaining `zibs-edge` permanently
-   for application ingress.
-3. Validate the revised zibs Compose and telemetry configuration without
-   changing production.
-4. Deploy the revised zibs services without deleting or recreating named
-   volumes.
-5. Verify the application, private operator dashboard, public shared
-   dashboard, Prometheus zibs target, Loki logs, Grafana datasources, and zibs
-   telemetry smoke test.
-6. Verify Hetzner-One host observability remained healthy during the zibs
-   recreation.
-7. Remove Grafana and Prometheus from `zibs-edge` after verifying their
-   replacement network paths; retire the zibs node_exporter.
-8. Keep `zibs-edge` for Caddy and zibs; do not remove this shared network.
-9. Retain the old zibs configuration and volumes through the agreed rollback
-   window.
+## Rollout and rollback
 
-The platform Prometheus starts its own host-metric history. Do not attempt to
-split or migrate node series out of zibs's mixed Prometheus TSDB. Retain the
-old Prometheus volume through the rollback window, then let the new platform
-retention policy become the authoritative history.
-
-## Rollback
-
-Restore the previous shared `zibs-edge` memberships and zibs Compose,
-Prometheus, dashboard, smoke-test, and documentation configuration, and
-recreate the previous services against the same named volumes. Hetzner-One host
-observability remains running; a zibs rollback does not require rolling back
-the platform stack.
+1. Implement and verify shared Grafana plus host node_exporter/Prometheus in
+   Hetzner-One, preserving dashboard state and existing app collectors.
+2. Verify both apps' dashboards, all datasource queries, public-dashboard
+   behavior, protected routes, and application health before retiring either
+   old Grafana. Coordinate the Caddy upstream change with the migration.
+3. Remove app-owned Grafana services and obsolete deployment assumptions so
+   an ordinary app deployment preserves platform ownership.
+4. Schedule the later zibs host-monitoring cleanup and network segmentation
+   independently. Attach replacement network paths and verify them before
+   removing existing connections.
+5. Retain configuration backups and named volumes through the migration's
+   rollback window. Restore Grafana state and routing together if needed;
+   never run old and new Grafana against the same writable database.
 
 ## Completion criteria
 
-- zibs runs no node_exporter and stores no host metrics.
-- Host panels exist only in the Hetzner-One host dashboard.
-- Caddy, zibs, Prometheus, Loki, Alloy, and Grafana have only the documented
-  network attachments.
-- The private zibs workspace and public shared dashboard retain their current
-  behavior.
-- The zibs telemetry smoke test and the Hetzner-One host smoke test both pass.
-- Restart and rollback procedures have been exercised without losing named
-  volume data or Caddy certificate state.
+- Hetzner-One owns one Grafana, host node_exporter, and host Prometheus.
+- Each application still owns its Alloy, Loki, and Prometheus with preserved
+  volumes and history.
+- Normal app deployments cannot recreate an app-owned Grafana.
+- Dashboards and datasource UIDs work, the existing public dashboard URL is
+  preserved, and private routes remain private.
+- After the later zibs cleanup, only Hetzner-One scrapes host metrics and
+  zibs's edge no longer carries telemetry services.
+- Application and platform checks pass, and rollback preserves app data,
+  Grafana state, and Caddy certificates.
