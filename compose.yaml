@@ -22,7 +22,7 @@ services:
       - ALL
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
 
   prometheus:
     image: prom/prometheus:v3.13.2
@@ -36,9 +36,9 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
 
-  # Host metrics stay on the private app-edge network. The exporter receives
+  # Host metrics stay on the private zibs-edge network. The exporter receives
   # only read-only views of the host filesystems and has no published port.
   node-exporter:
     image: prom/node-exporter:v1.11.1
@@ -61,7 +61,7 @@ services:
       - ALL
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
 
   loki:
     image: grafana/loki:3.7.2
@@ -120,7 +120,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
       - observability
 
 volumes:
@@ -131,6 +131,8 @@ volumes:
   grafana-data:
 
 networks:
-  app-edge:
+  # Hetzner-One (/opt/caddy) owns this network, as it does hooklook-edge.
+  zibs-edge:
+    external: true
   observability:
     internal: true

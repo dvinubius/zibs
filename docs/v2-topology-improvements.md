@@ -1,5 +1,9 @@
 # V2 topology improvements
 
+> Network ownership was migrated first: Hetzner-One now owns `zibs-edge`.
+> The additional segmentation below remains future work; preserve the existing
+> application edge when moving telemetry to separate networks.
+
 ## Status
 
 Deferred, independent follow-up work. This is not part of the Hetzner-One and
@@ -34,8 +38,8 @@ focused on zibs application, process, SQLite, metrics, and logs.
 
 ### The current network mixes unrelated trust and ownership boundaries
 
-The current `zibs_app-edge` network contains the public application,
-Prometheus, node_exporter, Grafana, and the external Caddy attachment. That is
+The current platform-owned `zibs-edge` network contains the public application,
+Prometheus, node_exporter, Grafana, and the Caddy attachment. That is
 convenient, but it makes one network responsible for public ingress,
 application metrics scraping, host metrics scraping, private datasource
 queries, and public shared-dashboard routing.
@@ -114,8 +118,8 @@ Hetzner-One Grafana workspace instead.
 ### Compose and networks
 
 - Remove the `node-exporter` service and its host mounts.
-- Replace the broad `app-edge` network with:
-  - platform-owned external `zibs-edge` for Caddy and zibs;
+- Further segment the broad `zibs-edge` network into:
+  - the existing platform-owned external `zibs-edge` for Caddy and zibs only;
   - platform-owned external `zibs-dashboard-edge` for Caddy and Grafana;
   - zibs-owned `metrics` for zibs and Prometheus;
   - zibs-owned internal `observability` for Prometheus, Alloy, Loki, and
@@ -157,8 +161,8 @@ design.
   deployed and have passed their independent smoke test.
 - Hetzner-One has created the external `zibs-edge` and
   `zibs-dashboard-edge` networks.
-- Caddy can be attached to both new networks while retaining its legacy
-  `zibs_app-edge` attachment during cutover.
+- Caddy can join `zibs-dashboard-edge` while retaining its existing
+  `zibs-edge` attachment.
 - Current zibs Compose/configuration and named-volume inventories have been
   recorded for rollback.
 - The normal zibs SQLite and Grafana backups are current and restore-verified.
@@ -166,8 +170,8 @@ design.
 ## Rollout sequence
 
 1. Confirm the Hetzner-One node target and host dashboard are healthy.
-2. Attach Caddy to `zibs-edge` and `zibs-dashboard-edge` while retaining
-   `zibs_app-edge` temporarily.
+2. Attach Caddy to `zibs-dashboard-edge`, retaining `zibs-edge` permanently
+   for application ingress.
 3. Validate the revised zibs Compose and telemetry configuration without
    changing production.
 4. Deploy the revised zibs services without deleting or recreating named
@@ -177,8 +181,9 @@ design.
    telemetry smoke test.
 6. Verify Hetzner-One host observability remained healthy during the zibs
    recreation.
-7. Remove Caddy's legacy `zibs_app-edge` attachment.
-8. Remove the legacy network only after no container uses it.
+7. Remove Grafana and Prometheus from `zibs-edge` after verifying their
+   replacement network paths; retire the zibs node_exporter.
+8. Keep `zibs-edge` for Caddy and zibs; do not remove this shared network.
 9. Retain the old zibs configuration and volumes through the agreed rollback
    window.
 
@@ -189,7 +194,7 @@ retention policy become the authoritative history.
 
 ## Rollback
 
-Reattach Caddy to `zibs_app-edge`, restore the previous zibs Compose,
+Restore the previous shared `zibs-edge` memberships and zibs Compose,
 Prometheus, dashboard, smoke-test, and documentation configuration, and
 recreate the previous services against the same named volumes. Hetzner-One host
 observability remains running; a zibs rollback does not require rolling back

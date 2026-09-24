@@ -7,6 +7,8 @@ packages.
 ## Prerequisites
 
 - A reachable Linux VM with Docker and Docker Compose installed.
+- Hetzner-One deployed at `/opt/caddy`, owning the external `zibs-edge`
+  network before zibs is started. zibs never creates or removes that network.
 - SSH access for the deployment user (default: `root`).
 - `zibs.app` DNS pointed at the VM and inbound TCP 80/443 plus UDP 443 allowed
   before the production profile is started.
@@ -44,12 +46,17 @@ environment files, documentation, and Git metadata. It writes the required
 secrets to `/opt/zibs/.env` with mode `0600`, builds remotely, starts the
 selected Compose services, and verifies `http://127.0.0.1:8080/health`.
 
-With `DEPLOY_ALL=1`, it force-recreates zibs and observability profile
-containers without removing named volumes, waits for Loki and Alloy readiness,
+With `DEPLOY_ALL=1`, it reconciles zibs and observability profile
+containers, recreating only changed services without removing named volumes, waits for Loki and Alloy readiness,
 then runs the telemetry smoke test. It does not deploy, restart, or configure
 Caddy. Caddy is shared VPS infrastructure managed from `/opt/caddy`; use that
 project's README to validate, deploy, or reload ingress configuration. See
 [Observability](observability.md) for what the telemetry test proves.
+
+For shared ingress changes, run `./scripts/deploy.sh` from the separate
+Hetzner-One checkout; its live project is `/opt/caddy`. This is independent
+of the zibs commands above. See [the network cutover record](caddy-network-cutover.md)
+for the migration and rollback procedure.
 
 ### Convert a Grafana V2 layout export
 

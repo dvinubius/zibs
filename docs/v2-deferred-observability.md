@@ -46,6 +46,9 @@ can be tested end to end.
 Thresholds must be absolute and appropriate for low traffic, and normal
 operation must not create repeated notifications.
 
+Caddy access/error log collection is owned by Hetzner-One as a host-level
+shared concern. The zibs Alloy pipeline currently collects no Caddy logs.
+
 ## Caddy versus Go request duration
 
 **Potential change:** enable carefully scoped Caddy access-duration telemetry

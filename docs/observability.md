@@ -12,7 +12,7 @@ flowchart TB
 
     subgraph host[Hetzner VM / Docker host]
         grafana[Grafana<br/>TCP 3000<br/>VM loopback only]
-        subgraph edge[zibs_app-edge Docker network]
+        subgraph edge[zibs-edge · owned by Hetzner-One]
             caddyAppEdge[Caddy<br/>attachment]
             zibs[zibs<br/>metrics: TCP 9091]
             prometheus[Prometheus<br/>TCP 9090]
@@ -28,7 +28,7 @@ flowchart TB
         lokiData[(loki-data<br/>14-day log volume)]
         alloyData[(alloy-data<br/>read positions)]
         grafanaData[(grafana-data<br/>Grafana state)]
-        caddy[Caddy<br/>TCP 80, 443<br/>UDP 443]
+        caddy[Caddy · Hetzner-One project<br/>TCP 80, 443<br/>UDP 443]
     end
 
     browser ==>|Operator SSH tunnel<br/>to VM loopback :3000| grafana
@@ -54,13 +54,19 @@ flowchart TB
 
 > **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
 > predates the Caddy extraction. It shows an older topology; the current Caddy
-> service is managed separately from `/opt/caddy` and joins zibs's network
-> externally for its narrow public-dashboard route.
+> service is managed separately from `/opt/caddy`, which owns `zibs-edge`
+> for the application and its narrow public-dashboard route.
 
-The zibs Compose `app-edge` network connects zibs, Prometheus, node_exporter,
-and Grafana. The separate `/opt/caddy` project joins its Docker network
-(`zibs_app-edge`) externally to reach zibs and Grafana; it owns Caddy's public
-ports, routing, and certificate state.
+Hetzner-One (the `/opt/caddy` Compose project) owns `zibs-edge` and
+`hooklook-edge`. zibs joins `zibs-edge` externally, like Hooklook joins
+`hooklook-edge`. The current zibs network connects zibs, Prometheus,
+node_exporter, Grafana, and shared Caddy. Hetzner-One owns Caddy's public
+ports, routing, and certificate state. Further telemetry segmentation is
+deferred to [the topology plan](v2-topology-improvements.md).
+
+Alloy collects only zibs application logs. Caddy access/error log collection
+belongs to Hetzner-One as a future host-level/shared mechanism; this cleanup
+does not add or migrate a Caddy log stream.
 The internal-only `observability` network connects Alloy, Loki, and Grafana.
 Grafana joins both networks so it can query both data sources. Prometheus, Loki,
 Alloy, and zibs's metrics listener have no public host-port mappings. Grafana
@@ -70,9 +76,9 @@ binds only to `127.0.0.1:3000` on the VM; operators use an SSH tunnel.
 
 | Port | Protocol | Where it is reachable | Purpose |
 |---|---|---|---|
-| 9091 | TCP | `app-edge` Docker network only | Prometheus metrics; neither host-published nor proxied |
-| 9090 | TCP | `app-edge` Docker network only | Prometheus UI and query API; not host-published |
-| 9100 | TCP | `app-edge` Docker network only | node_exporter host metrics; neither host-published nor proxied |
+| 9091 | TCP | `zibs-edge` Docker network only | Prometheus metrics; neither host-published nor proxied |
+| 9090 | TCP | `zibs-edge` Docker network only | Prometheus UI and query API; not host-published |
+| 9100 | TCP | `zibs-edge` Docker network only | node_exporter host metrics; neither host-published nor proxied |
 | 3100 | TCP | Internal `observability` Docker network only | Loki API; not host-published |
 | 12345 | TCP | Internal `observability` Docker network only | Alloy readiness endpoint; not host-published |
 | 3000 | TCP | VM loopback only | Private Grafana workspace; operators use an SSH tunnel |
@@ -223,7 +229,7 @@ middleware.
 The production Compose profile runs Grafana on `127.0.0.1:3000` of the VM.
 It has no public port mapping, disables anonymous access and user sign-up, and
 requires a separate `GRAFANA_ADMIN_PASSWORD`. Operators reach it over an SSH
-tunnel. Grafana connects to Prometheus through `app-edge` and Loki through the
+tunnel. Grafana connects to Prometheus through `zibs-edge` and Loki through the
 internal `observability` network; neither data source is reachable from the
 public internet.
 
@@ -359,7 +365,7 @@ It has a capacity-relevant ext4 root filesystem (`/` on `/dev/sda1`), a small
 EFI vfat mount, and Docker overlay, pseudo, and temporary mounts. The pinned
 `prom/node-exporter:v1.11.1` image was released on 2026-04-07, exceeding this
 repository's three-week package-age minimum at implementation time. It is
-attached only to `app-edge`, publishes no host port, drops all Linux
+attached only to `zibs-edge`, publishes no host port, drops all Linux
 capabilities, enables `no-new-privileges`, and receives a read-only recursive
 slave mount of `/`. Its root, proc, and sys paths point inside that mount.
 

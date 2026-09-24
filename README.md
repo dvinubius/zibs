@@ -18,14 +18,14 @@ flowchart LR
     browser([Browser]) ==>|HTTPS| caddy
 
     subgraph vm[one VM]
-        subgraph edge[zibs_app-edge network]
+        subgraph edge[zibs-edge · owned by Hetzner-One]
             caddyAppEdge[Caddy<br/>attachment]
             zibs[zibs<br/>Go service]
         end
         zibs --> db[(SQLite)]
         zibs -.->|metrics · logs| obs[Prometheus · Alloy<br/>Loki · Grafana<br/>- - - includes - - -<br/>services, network attachments, volumes]
         obs -.->|shared public dashboard| caddy
-        caddy[Caddy<br/>shared ingress]
+        caddy[Caddy · Hetzner-One project<br/>shared ingress]
     end
 
     caddy -.-|network attachment| caddyAppEdge
@@ -36,7 +36,8 @@ flowchart LR
 ```
 
 Caddy is the only public entry point, managed as the separate `/opt/caddy`
-shared-infrastructure project; zibs does not deploy or configure it. The
+Hetzner-One project, which owns both `zibs-edge` and `hooklook-edge`.
+zibs joins `zibs-edge` as an external network and does not deploy Caddy. The
 telemetry stack is private except for the one externally shared dashboard.
 
 > **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
@@ -61,7 +62,10 @@ Open `http://localhost:8080`. The service creates `zibs.db` in the working
 directory. Its private metrics endpoint is `http://127.0.0.1:9091/metrics`;
 do not expose it through a public reverse proxy.
 
-Docker Compose is also available when you want the containerized shape:
+Docker Compose is also available when you want the containerized shape.
+It requires the external `zibs-edge` network. On production, deploy
+Hetzner-One first; for an isolated local setup, create it once with
+`docker network create zibs-edge`.
 
 ```bash
 ADMIN_TOKEN=development-only-token docker compose up --build

@@ -12,12 +12,12 @@ flowchart TB
 
     subgraph host[Hetzner VM / Docker host]
         caddyData[(zibs_caddy-data / zibs_caddy-config<br/>certificates and config)]
-        subgraph edge[zibs_app-edge Docker network]
+        subgraph edge[zibs-edge · owned by Hetzner-One]
             caddyAppEdge[Caddy<br/>attachment]
             zibs[zibs<br/>TCP 8080]
         end
         zibsData[(zibs-data<br/>SQLite volume)]
-        caddy[Caddy<br/>TCP 80, 443<br/>UDP 443]
+        caddy[Caddy · Hetzner-One project<br/>TCP 80, 443<br/>UDP 443]
     end
 
     browser ==>|HTTPS| caddy
@@ -33,13 +33,13 @@ flowchart TB
 > **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
 > predates the Caddy extraction. Its topology should not be used as the current
 > deployment reference: Caddy now runs separately from `/opt/caddy` and joins
-> zibs's `zibs_app-edge` network externally.
+> the Hetzner-One-owned `zibs-edge` network.
 
 All components run on one Docker host. Caddy is the only public entry point and
 is managed from the separate `/opt/caddy` Compose project. It obtains and
 renews TLS certificates after DNS for `zibs.app` points to the host and inbound
 ports 80 and 443 are reachable. It forwards normal traffic to the `zibs`
-service over the `zibs_app-edge` Docker network, which zibs creates and Caddy
+service over the `zibs-edge` Docker network, which Hetzner-One creates and zibs
 joins as an external network.
 
 ## Components and boundaries
@@ -47,7 +47,7 @@ joins as an external network.
 | Component | Responsibility | Exposure |
 |---|---|---|
 | Caddy (`/opt/caddy`) | TLS termination, HTTP-to-HTTPS handling, reverse proxy | Host ports 80, 443, and UDP 443 |
-| zibs | Public page/API, redirects, administration, SQLite access | `127.0.0.1:8080` on the VM; Caddy reaches it over `zibs_app-edge` |
+| zibs | Public page/API, redirects, administration, SQLite access | `127.0.0.1:8080` on the VM; Caddy reaches it over `zibs-edge` |
 | `zibs-data` volume | Durable SQLite directory mounted at `/data` | Attached only to zibs and one-off backup containers |
 
 The application container is read-only, uses a writable `/tmp` tmpfs, drops all
@@ -61,7 +61,7 @@ writable because it is the application’s durable state.
 | 80 | TCP | VM public interface, Caddy only | ACME HTTP challenge and HTTP-to-HTTPS redirect |
 | 443 | TCP | VM public interface, Caddy only | HTTPS |
 | 443 | UDP | VM public interface, Caddy only | HTTP/3 (optional for clients) |
-| 8080 | TCP | `zibs_app-edge` Docker network; VM loopback | zibs's normal HTTP API |
+| 8080 | TCP | `zibs-edge` Docker network; VM loopback | zibs's normal HTTP API |
 
 Telemetry ports are inventoried separately in
 [Observability](observability.md); none of them is publicly reachable.

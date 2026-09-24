@@ -82,6 +82,10 @@ if [[ $grafana_admin_password == *$'\n'* ]]; then
 	exit 1
 fi
 
+# Fail before uploading files or changing containers if shared ingress is absent.
+ssh "${ssh_options[@]}" "$target" \
+	"docker network inspect zibs-edge >/dev/null"
+
 rsync -az \
 	--exclude '.git/' \
 	--exclude '.agents/' \
@@ -110,14 +114,14 @@ printf 'ADMIN_TOKEN=%s\nGRAFANA_ADMIN_PASSWORD=%s\n' "$admin_token" "$grafana_ad
 
 if [[ $deploy_all == 1 ]]; then
 	ssh "${ssh_options[@]}" "$target" \
-		"cd $deploy_path && docker compose --profile production up --build --detach --force-recreate"
+		"cd $deploy_path && docker compose --profile production up --build --detach"
 else
 	ssh "${ssh_options[@]}" "$target" \
 		"cd $deploy_path && docker compose up --build --detach zibs"
 fi
 
 ssh "${ssh_options[@]}" "$target" \
-	"curl --fail --silent --show-error http://127.0.0.1:8080/health"
+	"curl --fail --silent --show-error --retry 15 --retry-connrefused --retry-delay 1 http://127.0.0.1:8080/health"
 
 if [[ $deploy_all == 1 ]]; then
 	ssh "${ssh_options[@]}" "$target" "
