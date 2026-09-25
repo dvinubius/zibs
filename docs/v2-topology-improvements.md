@@ -2,7 +2,7 @@
 
 ## Status and sequence
 
-Planned follow-up work. The Caddy extraction is complete: Hetzner-One owns
+Planned follow-up work. The Caddy extraction is complete: [Hetzner-One](https://github.com/dvinubius/hetzner-one) owns
 `zibs-edge` and `hooklook-edge`, and the applications join their respective
 networks externally.
 

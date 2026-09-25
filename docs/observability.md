@@ -54,10 +54,10 @@ flowchart TB
 
 > **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
 > predates the Caddy extraction. It shows an older topology; the current Caddy
-> service is managed separately from `/opt/caddy`, which owns `zibs-edge`
+> service is managed separately by [Hetzner-One](https://github.com/dvinubius/hetzner-one) from `/opt/caddy`, which owns `zibs-edge`
 > for the application and its narrow public-dashboard route.
 
-Hetzner-One (the `/opt/caddy` Compose project) owns `zibs-edge` and
+[Hetzner-One](https://github.com/dvinubius/hetzner-one) (the `/opt/caddy` Compose project) owns `zibs-edge` and
 `hooklook-edge`. zibs joins `zibs-edge` externally, like Hooklook joins
 `hooklook-edge`. The current zibs network connects zibs, Prometheus,
 node_exporter, Grafana, and shared Caddy. Hetzner-One owns Caddy's public

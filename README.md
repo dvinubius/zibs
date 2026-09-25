@@ -35,15 +35,27 @@ flowchart LR
     class caddyAppEdge,obs simplified;
 ```
 
-Caddy is the only public entry point, managed as the separate `/opt/caddy`
-Hetzner-One project, which owns both `zibs-edge` and `hooklook-edge`.
-zibs joins `zibs-edge` as an external network and does not deploy Caddy. The
-telemetry stack is private except for the one externally shared dashboard.
+> [!IMPORTANT]
+> **zibs is not a standalone deployment.** This repository contains no reverse
+> proxy, obtains no TLS certificates, and does not create the Docker network
+> its services join. Public ingress comes from the separate
+> [Hetzner-One](https://github.com/dvinubius/hetzner-one) repository, which
+> owns the shared Caddy service (public ports 80/443, TLS certificates,
+> hostname routing for `zibs.app`) and the `zibs-edge` network. Hetzner-One
+> must be deployed first; zibs then joins `zibs-edge` as an external network.
+> Without it, zibs still runs on VM loopback, but nothing serves `zibs.app`
+> or the public dashboard.
+
+Caddy is the only public entry point. Hetzner-One runs it as the `/opt/caddy`
+Compose project on the VM and owns both `zibs-edge` and `hooklook-edge`.
+zibs does not deploy, configure, or reload Caddy. The telemetry stack is
+private except for the one externally shared dashboard, which Caddy proxies
+on a narrow route.
 
 > **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
 > predates the Caddy extraction and therefore depicts a different deployment
 > topology. In the current deployment, Caddy is decoupled from zibs and managed
-> separately from `/opt/caddy`.
+> by [Hetzner-One](https://github.com/dvinubius/hetzner-one) at `/opt/caddy`.
 
 This diagram is strongly simplified. The full picture — observability services, networks, volumes, port
 boundaries — is in [deployment architecture](docs/deployment-architecture.md)
@@ -64,8 +76,8 @@ do not expose it through a public reverse proxy.
 
 Docker Compose is also available when you want the containerized shape.
 It requires the external `zibs-edge` network. On production, deploy
-Hetzner-One first; for an isolated local setup, create it once with
-`docker network create zibs-edge`.
+[Hetzner-One](https://github.com/dvinubius/hetzner-one) first; for an
+isolated local setup, create it once with `docker network create zibs-edge`.
 
 ```bash
 ADMIN_TOKEN=development-only-token docker compose up --build

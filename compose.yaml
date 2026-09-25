@@ -131,7 +131,8 @@ volumes:
   grafana-data:
 
 networks:
-  # Hetzner-One (/opt/caddy) owns this network, as it does hooklook-edge.
+  # Hetzner-One (github.com/dvinubius/hetzner-one, deployed at /opt/caddy) owns
+  # this network, as it does hooklook-edge.
   zibs-edge:
     external: true
   observability:

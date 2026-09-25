@@ -11,7 +11,7 @@ flowchart TB
     browser[Browser]
 
     subgraph host[Hetzner VM / Docker host]
-        caddyData[(zibs_caddy-data / zibs_caddy-config<br/>certificates and config)]
+        caddyData[(caddy_caddy-data / caddy_caddy-config<br/>certificates and config<br/>owned by Hetzner-One)]
         subgraph edge[zibs-edge · owned by Hetzner-One]
             caddyAppEdge[Caddy<br/>attachment]
             zibs[zibs<br/>TCP 8080]
@@ -35,8 +35,16 @@ flowchart TB
 > deployment reference: Caddy now runs separately from `/opt/caddy` and joins
 > the Hetzner-One-owned `zibs-edge` network.
 
+> [!IMPORTANT]
+> **zibs depends on [Hetzner-One](https://github.com/dvinubius/hetzner-one) for ingress.** This repository deploys only the zibs
+> service, its SQLite volume, and its telemetry stack. Caddy, its
+> certificate volumes, its `Caddyfile` routes for `zibs.app`, and the
+> `zibs-edge` network all belong to Hetzner-One. Deploy Hetzner-One before
+> zibs; without it, zibs is reachable only on VM loopback.
+
 All components run on one Docker host. Caddy is the only public entry point and
-is managed from the separate `/opt/caddy` Compose project. It obtains and
+is managed from the separate `/opt/caddy` Compose project, deployed from the
+[Hetzner-One](https://github.com/dvinubius/hetzner-one) repository. It obtains and
 renews TLS certificates after DNS for `zibs.app` points to the host and inbound
 ports 80 and 443 are reachable. It forwards normal traffic to the `zibs`
 service over the `zibs-edge` Docker network, which Hetzner-One creates and zibs
@@ -46,7 +54,7 @@ joins as an external network.
 
 | Component | Responsibility | Exposure |
 |---|---|---|
-| Caddy (`/opt/caddy`) | TLS termination, HTTP-to-HTTPS handling, reverse proxy | Host ports 80, 443, and UDP 443 |
+| Caddy (Hetzner-One, `/opt/caddy`) | TLS termination, HTTP-to-HTTPS handling, reverse proxy | Host ports 80, 443, and UDP 443 |
 | zibs | Public page/API, redirects, administration, SQLite access | `127.0.0.1:8080` on the VM; Caddy reaches it over `zibs-edge` |
 | `zibs-data` volume | Durable SQLite directory mounted at `/data` | Attached only to zibs and one-off backup containers |
 
@@ -72,8 +80,8 @@ Telemetry ports are inventoried separately in
 high-entropy secret, never committed to Git. The deployment script writes it to
 `/opt/zibs/.env` on the VM with mode `0600`.
 
-Caddy configuration, including explicit hostnames, lives in `/opt/caddy`; it
-is not part of a zibs deployment. Change a domain only there, with matching DNS
+Caddy configuration, including explicit hostnames, lives in the [Hetzner-One](https://github.com/dvinubius/hetzner-one)
+`Caddyfile`, deployed to `/opt/caddy`; it is not part of a zibs deployment. Change a domain only there, with matching DNS
 and TLS reachability in place.
 
 ## Persistence and scaling constraints
