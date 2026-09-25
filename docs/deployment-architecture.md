@@ -11,15 +11,13 @@ flowchart TB
     browser[Browser]
 
     subgraph host[Hetzner VM / Docker host]
-        subgraph compose[Docker Compose project]
-            caddy[Caddy<br/>TCP 80, 443<br/>UDP 443]
-            subgraph edge[app-edge Docker network]
-                caddyAppEdge[Caddy<br/>attachment]
-                zibs[zibs<br/>TCP 8080]
-            end
-            zibsData[(zibs-data<br/>SQLite volume)]
-            caddyData[(caddy-data / caddy-config<br/>certificates and config)]
+        caddyData[(caddy_caddy-data / caddy_caddy-config<br/>certificates and config<br/>owned by Hetzner-One)]
+        subgraph edge[zibs-edge · owned by Hetzner-One]
+            caddyAppEdge[Caddy<br/>attachment]
+            zibs[zibs<br/>TCP 8080]
         end
+        zibsData[(zibs-data<br/>SQLite volume)]
+        caddy[Caddy · Hetzner-One project<br/>TCP 80, 443<br/>UDP 443]
     end
 
     browser ==>|HTTPS| caddy
@@ -32,17 +30,32 @@ flowchart TB
     class caddyAppEdge networkAttachment;
 ```
 
-All components run on one Docker host. Caddy is the only public entry point;
-it obtains and renews TLS certificates after DNS for `zibs.app` points to the
-host and inbound ports 80 and 443 are reachable. It forwards normal traffic to
-the `zibs` service over the private `app-edge` Docker network.
+> **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
+> predates the Caddy extraction. Its topology should not be used as the current
+> deployment reference: Caddy now runs separately from `/opt/caddy` and joins
+> the Hetzner-One-owned `zibs-edge` network.
+
+> [!IMPORTANT]
+> **zibs depends on [Hetzner-One](https://github.com/dvinubius/hetzner-one) for ingress.** This repository deploys only the zibs
+> service, its SQLite volume, and its telemetry stack. Caddy, its
+> certificate volumes, its `Caddyfile` routes for `zibs.app`, and the
+> `zibs-edge` network all belong to Hetzner-One. Deploy Hetzner-One before
+> zibs; without it, zibs is reachable only on VM loopback.
+
+All components run on one Docker host. Caddy is the only public entry point and
+is managed from the separate `/opt/caddy` Compose project, deployed from the
+[Hetzner-One](https://github.com/dvinubius/hetzner-one) repository. It obtains and
+renews TLS certificates after DNS for `zibs.app` points to the host and inbound
+ports 80 and 443 are reachable. It forwards normal traffic to the `zibs`
+service over the `zibs-edge` Docker network, which Hetzner-One creates and zibs
+joins as an external network.
 
 ## Components and boundaries
 
 | Component | Responsibility | Exposure |
 |---|---|---|
-| Caddy | TLS termination, HTTP-to-HTTPS handling, reverse proxy | Host ports 80, 443, and UDP 443 |
-| zibs | Public page/API, redirects, administration, SQLite access | `127.0.0.1:8080` on the VM; Caddy reaches it over `app-edge` |
+| Caddy (Hetzner-One, `/opt/caddy`) | TLS termination, HTTP-to-HTTPS handling, reverse proxy | Host ports 80, 443, and UDP 443 |
+| zibs | Public page/API, redirects, administration, SQLite access | `127.0.0.1:8080` on the VM; Caddy reaches it over `zibs-edge` |
 | `zibs-data` volume | Durable SQLite directory mounted at `/data` | Attached only to zibs and one-off backup containers |
 
 The application container is read-only, uses a writable `/tmp` tmpfs, drops all
@@ -56,7 +69,7 @@ writable because it is the application’s durable state.
 | 80 | TCP | VM public interface, Caddy only | ACME HTTP challenge and HTTP-to-HTTPS redirect |
 | 443 | TCP | VM public interface, Caddy only | HTTPS |
 | 443 | UDP | VM public interface, Caddy only | HTTP/3 (optional for clients) |
-| 8080 | TCP | `app-edge` Docker network; VM loopback | zibs's normal HTTP API |
+| 8080 | TCP | `zibs-edge` Docker network; VM loopback | zibs's normal HTTP API |
 
 Telemetry ports are inventoried separately in
 [Observability](observability.md); none of them is publicly reachable.
@@ -67,9 +80,9 @@ Telemetry ports are inventoried separately in
 high-entropy secret, never committed to Git. The deployment script writes it to
 `/opt/zibs/.env` on the VM with mode `0600`.
 
-`CADDY_DOMAIN` defaults to `zibs.app` in Compose. Change it only when deploying
-the same stack for another domain and ensure the matching DNS and TLS reachability
-are in place.
+Caddy configuration, including explicit hostnames, lives in the [Hetzner-One](https://github.com/dvinubius/hetzner-one)
+`Caddyfile`, deployed to `/opt/caddy`; it is not part of a zibs deployment. Change a domain only there, with matching DNS
+and TLS reachability in place.
 
 ## Persistence and scaling constraints
 

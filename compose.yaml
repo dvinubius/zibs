@@ -22,27 +22,7 @@ services:
       - ALL
     restart: unless-stopped
     networks:
-      - app-edge
-
-  caddy:
-    image: caddy:2.11.4-alpine
-    profiles:
-      - production
-    depends_on:
-      - zibs
-    environment:
-      CADDY_DOMAIN: ${CADDY_DOMAIN:-zibs.app}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    restart: unless-stopped
-    networks:
-      - app-edge
+      - zibs-edge
 
   prometheus:
     image: prom/prometheus:v3.13.2
@@ -56,9 +36,9 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
 
-  # Host metrics stay on the private app-edge network. The exporter receives
+  # Host metrics stay on the private zibs-edge network. The exporter receives
   # only read-only views of the host filesystems and has no published port.
   node-exporter:
     image: prom/node-exporter:v1.11.1
@@ -81,7 +61,7 @@ services:
       - ALL
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
 
   loki:
     image: grafana/loki:3.7.2
@@ -140,19 +120,20 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
     networks:
-      - app-edge
+      - zibs-edge
       - observability
 
 volumes:
   zibs-data:
-  caddy-data:
-  caddy-config:
   prometheus-data:
   loki-data:
   alloy-data:
   grafana-data:
 
 networks:
-  app-edge:
+  # Hetzner-One (github.com/dvinubius/hetzner-one, deployed at /opt/caddy) owns
+  # this network, as it does hooklook-edge.
+  zibs-edge:
+    external: true
   observability:
     internal: true

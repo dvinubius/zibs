@@ -18,6 +18,7 @@ boundaries. These documents describe the implementation and how to operate it.
 - [Observability](observability.md) — metrics, logs, the Prometheus/Alloy/Loki/Grafana stack, smoke tests, and the operator dashboard.
 - [Manual diagnostics](diagnostics.md) — per-component checks of the deployed service and telemetry chain for when the smoke test is not enough.
 - [Deferred observability work](v2-deferred-observability.md) — intentionally postponed telemetry and alerting work, with the conditions for revisiting it.
+- [V2 topology improvements](v2-topology-improvements.md) — later removal of zibs-owned host monitoring and clearer network segmentation after Hetzner-One becomes authoritative for host observability.
 
 ## Decisions
 

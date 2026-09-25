@@ -44,6 +44,13 @@ and forwards normal application traffic to the public listener. The metrics
 listener is private and is scraped by Prometheus; it is never routed through
 the public proxy.
 
+> **External dependency:** the reverse proxy is not part of this repository.
+> In production it is the shared Caddy service owned by
+> [Hetzner-One](https://github.com/dvinubius/hetzner-one), which also creates
+> the `zibs-edge` Docker network that zibs joins externally. zibs is
+> therefore not self-sufficient for public traffic; see
+> [Deployment architecture](deployment-architecture.md) for the boundary.
+
 Prometheus, Loki, Alloy, and Grafana are deployed as the production telemetry
 stack. The service exposes the private metrics listener and emits structured
 JSON logs to standard output; see [Observability](observability.md) for the

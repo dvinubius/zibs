@@ -4,9 +4,17 @@ This runbook deploys the current working tree to a prepared single Docker host.
 It does not provision a VM, install Docker, configure DNS, or update host
 packages.
 
+> [!IMPORTANT]
+> **zibs is not standalone.** Public ingress (Caddy, TLS, the `zibs.app`
+> route) and the `zibs-edge` network are owned by the separate [Hetzner-One](https://github.com/dvinubius/hetzner-one)
+> repository. This runbook never deploys, restarts, or reconfigures them.
+> Deploy Hetzner-One first, following its own deployment runbook.
+
 ## Prerequisites
 
 - A reachable Linux VM with Docker and Docker Compose installed.
+- [Hetzner-One](https://github.com/dvinubius/hetzner-one) deployed at `/opt/caddy`, owning the external `zibs-edge`
+  network before zibs is started. zibs never creates or removes that network.
 - SSH access for the deployment user (default: `root`).
 - `zibs.app` DNS pointed at the VM and inbound TCP 80/443 plus UDP 443 allowed
   before the production profile is started.
@@ -33,8 +41,7 @@ For an application-only deployment, which exposes zibs only on VM loopback:
 ./scripts/deploy.sh
 ```
 
-For the complete production profile, including TLS reverse proxy and the
-observability stack:
+For the complete zibs production profile, including the observability stack:
 
 ```bash
 DEPLOY_ALL=1 ./scripts/deploy.sh
@@ -45,9 +52,16 @@ environment files, documentation, and Git metadata. It writes the required
 secrets to `/opt/zibs/.env` with mode `0600`, builds remotely, starts the
 selected Compose services, and verifies `http://127.0.0.1:8080/health`.
 
-With `DEPLOY_ALL=1`, it force-recreates profile containers without removing
-named volumes, waits for Loki and Alloy readiness, then runs the telemetry
-smoke test. See [Observability](observability.md) for what that test proves.
+With `DEPLOY_ALL=1`, it reconciles zibs and observability profile
+containers, recreating only changed services without removing named volumes, waits for Loki and Alloy readiness,
+then runs the telemetry smoke test. It does not deploy, restart, or configure
+Caddy. Caddy is shared VPS infrastructure managed from `/opt/caddy`; use the
+[Hetzner-One](https://github.com/dvinubius/hetzner-one) README to validate, deploy, or reload ingress configuration. See
+[Observability](observability.md) for what the telemetry test proves.
+
+For shared ingress changes, run `./scripts/deploy.sh` from a separate
+[Hetzner-One](https://github.com/dvinubius/hetzner-one) checkout; its live project is `/opt/caddy`. This is independent
+of the zibs commands above.
 
 ### Convert a Grafana V2 layout export
 
@@ -116,6 +130,10 @@ After DNS and certificates have settled, confirm the public endpoint:
 ```bash
 curl --fail https://zibs.app/health
 ```
+
+The public check depends on the independently managed `/opt/caddy` service.
+If it fails while the loopback health check passes, inspect Caddy from
+`/opt/caddy` using the [Hetzner-One](https://github.com/dvinubius/hetzner-one) runbook; do not rerun the zibs deployment as an ingress repair.
 
 For a full-profile deployment, also run:
 
