@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <em>A friendly link shortener. No account, no costs — just be human and say hi.</em>
+  A friendly link shortener. No account, no costs — just be human and say hi.
 </p>
 
 <p align="center">
