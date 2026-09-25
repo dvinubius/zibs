@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/static/zibs-thumbnail.png" alt="zibs wordmark on a dark background" width="400">
+  <img src="docs/assets/zibs-readme-banner.png" alt="zibs wordmark on a dark background" width="400">
 </p>
 
 <p align="center">
