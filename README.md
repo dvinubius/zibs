@@ -1,12 +1,35 @@
+<p align="center">
+  <img src="web/static/zibs-thumbnail.png" alt="zibs wordmark on a dark background" width="400">
+</p>
+
+<p align="center">
+  <em>A friendly link shortener. No account, no costs — just be human and say hi.</em>
+</p>
+
+<p align="center">
+  <a href="docs/README.md"><strong>Docs</strong></a> ·
+  <a href="#architecture-at-a-glance"><strong>Architecture</strong></a> ·
+  <a href="docs/observability.md"><strong>Observability</strong></a>
+</p>
+
+<p align="center">
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/dvinubius/zibs" alt="Go version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20(code%20only)-blue" alt="License"></a>
+  <a href="https://zibs.app/health"><img src="https://img.shields.io/website?url=https%3A%2F%2Fzibs.app%2Fhealth&label=zibs.app&up_message=live&down_message=down" alt="zibs.app status"></a>
+</p>
+
+<h3 align="center"><a href="https://zibs.app">https://zibs.app</a></h3>
+
 # zibs
 
-**zibs** is a friendly link shortener — small in scope, production-grade in shape. It runs live at [zibs.app](https://zibs.app).
+**Zibs** is a friendly link shortener — small in scope, production-grade in shape.
 
-The app is free to use and requires a "zib" token, which you can request by email — personally. Each browser remembers the token after its first use, so it is entered once per device.
+Zibs is **free to use**.
+
+The app requires a "zib" token, which you can request by email — personally. Each browser remembers the token after its first use, so it is entered once per device.
 
 Behind the one-page frontend sits a complete, self-hosted production service: a Go application with SQLite persistence, deployed as a hardened container behind a TLS-terminating reverse proxy on a single VM, with scripted deployments, verified database backups, and a **full observability stack** — Prometheus metrics, structured logs shipped through Alloy to Loki, and Grafana dashboards provisioned straight from this repository.
 
-- 🔗 **Try it** — [zibs.app](https://zibs.app) shortens links for people who've said hi; the site explains how to get a token.
 - 📈 **Watch it run** — the [public metrics dashboard](https://zibs.app/public-dashboards/6b58a8bd322f4bbfb06f4b285055028c) shows live request rates, latency percentiles, and redirect totals. It is the deliberately limited public view of the private operator dashboard.
 - ⭐ **Like what you see?** Star the repo — it helps others find it.
 - 📕 There is a [**Substack article**](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us) describing this app, and it refers to the v1 release. Check out that [specific tree](https://github.com/dvinubius/zibs/tree/28cff4a1bb402486c5fdfde32b6e9a63e95826ca) if you want to explore the project as presented in the article.
