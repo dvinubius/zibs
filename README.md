@@ -34,6 +34,7 @@ Behind the one-page frontend sits a complete, self-hosted production service: a 
 - ⭐ **Like what you see?** Star the repo — it helps others find it.
 - 📕 There is a [**Substack article**](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us) describing this app, and it refers to the **v1 release**. Check out that [specific tree](https://github.com/dvinubius/zibs/tree/28cff4a1bb402486c5fdfde32b6e9a63e95826ca) if you want to explore the project as presented in the article.
 
+
 ## Architecture at a glance
 
 ```mermaid
