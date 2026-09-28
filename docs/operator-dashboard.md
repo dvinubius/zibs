@@ -50,9 +50,14 @@ Use the private **zibs operator overview** dashboard to triage a time range. Sta
 
 ![Runtime panels](assets/dash-runtime.png)
 
+- **Resident vs Go-managed memory** — compares the process's operating-system
+  memory footprint with memory reserved by the Go runtime; the gap approximates
+  non-Go memory, chiefly the cgo SQLite page cache.
+- **Heap vs next GC target** — shows live heap allocation against the size that
+  triggers the next garbage collection; rising troughs suggest retained memory.
+- **Allocation rate** — Go heap bytes allocated per second; it should track
+  request volume, so a step change after a deploy points to a regression.
 - **Go goroutines** — detects accumulating concurrent work or leaks.
-- **Go heap allocation** — checks memory growth in the Go runtime.
-- **Resident memory** — shows the process's operating-system memory footprint.
 - **CPU usage** — identifies application CPU pressure.
 - **Open file descriptors** — detects descriptor growth toward process limits.
 

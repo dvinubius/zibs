@@ -1134,9 +1134,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 8,
         "x": 0,
-        "y": 50
+        "y": 58
       },
       "targets": [
         {
@@ -1144,11 +1144,28 @@
           "expr": "go_goroutines{job=\"zibs\"}",
           "legendFormat": "goroutines"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      }
     },
     {
       "id": 18,
-      "title": "Go heap allocation",
+      "title": "Resident vs Go-managed memory",
+      "description": "Resident memory includes allocations outside the Go runtime, chiefly the cgo SQLite page cache. The gap between the two series approximates that non-Go memory.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1156,49 +1173,150 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 6,
+        "w": 8,
+        "x": 0,
         "y": 50
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes"
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never"
+          }
         },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "go_memstats_alloc_bytes{job=\"zibs\"}",
-          "legendFormat": "heap allocated"
-        }
-      ]
-    },
-    {
-      "id": 19,
-      "title": "Resident memory",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 50
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes"
-        },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "resident memory"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Go runtime reserved"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "refId": "A",
           "expr": "process_resident_memory_bytes{job=\"zibs\"}",
           "legendFormat": "resident memory"
+        },
+        {
+          "refId": "B",
+          "expr": "go_memstats_sys_bytes{job=\"zibs\"}",
+          "legendFormat": "Go runtime reserved"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Heap vs next GC target",
+      "description": "Live heap allocation against the heap size that triggers the next garbage collection. Rising troughs over a long range suggest retained memory.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 50
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "heap allocated"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "next GC target"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "go_memstats_heap_alloc_bytes{job=\"zibs\"}",
+          "legendFormat": "heap allocated"
+        },
+        {
+          "refId": "B",
+          "expr": "go_memstats_next_gc_bytes{job=\"zibs\"}",
+          "legendFormat": "next GC target"
         }
       ]
     },
@@ -1212,13 +1330,24 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 50
+        "w": 8,
+        "x": 8,
+        "y": 58
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "super-light-red"
+          }
         },
         "overrides": []
       },
@@ -1227,6 +1356,46 @@
           "refId": "A",
           "expr": "rate(process_cpu_seconds_total{job=\"zibs\"}[$__rate_interval])",
           "legendFormat": "CPU"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "title": "Allocation rate",
+      "description": "Bytes allocated on the Go heap per second. It should track request volume; a step change after a deploy points to an allocation regression.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 50
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(go_memstats_alloc_bytes_total{job=\"zibs\"}[$__rate_interval])",
+          "legendFormat": "allocated"
         }
       ]
     },
@@ -1240,8 +1409,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
+        "w": 8,
+        "x": 16,
         "y": 58
       },
       "targets": [
@@ -1255,7 +1424,64 @@
           "expr": "process_max_fds{job=\"zibs\"}",
           "legendFormat": "limit"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "open"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": 106,
