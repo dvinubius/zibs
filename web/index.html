@@ -122,48 +122,46 @@
   <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
     <div class="about-card">
       <div class="about-top">
-        <h2 id="about-title" class="about-title">about zibs</h2>
-        <button id="about-close" class="about-close" type="button" aria-label="Close">✕</button>
+        <h2 id="about-title" class="about-title">About zibs</h2>
+        <button id="about-close" class="about-close" type="button" aria-label="Close">×</button>
       </div>
       <p class="about-lede">
         A link shortener service for people who've said hi.
         <br/>No accounts, no tracking, no costs.
       </p>
-      <p class="faq-q">// how do I use it?</p>
+      <p class="faq-q">How do I use it?</p>
       <p class="faq-a">
         You email
         <a href="mailto:zibs@dinubarbu.com">zibs@dinubarbu.com</a>
         and ask for a personal zib token. I'm sending it to you, then you can zib links with it.
       </p>
-      <p class="faq-q">// can you remember my token for me?</p>
+      <p class="faq-q">Can you remember my token for me?</p>
       <p class="faq-a">
-        Glad you asked, yes! After the first zib, the device remembers
+        Glad you asked, yes! After the first zib, the <strong class="faq-highlight">device remembers</strong>
         the token and fills it in for you. The same token works on as 
         many devices as you like.
       </p>
-      <p class="faq-q">// how long do short links last?</p>
+      <p class="faq-q">How long do short links last?</p>
       <p class="faq-a">
-        90 days from creation — after that the short URL returns 404. The
+        <strong class="faq-highlight">90 days</strong> from creation — after that the short URL returns 404. The
         expiry is fixed; if you need a link for longer, create it again.
       </p>
-      <p class="faq-q">// does my token expire?</p>
+      <p class="faq-q">Does my token expire?</p>
       <p class="faq-a">
         No. A token stays valid indefinitely but is good for a limited number
         of uses (plenty). The app will give you a heads-up once you're down 
         to the last few uses. When your token does run out, just ask for another.
       </p>
-      <p class="faq-q">// what does this page store about me?</p>
+      <p class="faq-q">What does this page store about me?</p>
       <p class="faq-a">
-        Your token and your theme choice, in this browser's local storage on 
-        this device. Nothing about you leaves the device. Any zibbed URL is
+        Your token and your theme choice, in this browser's local storage
+        <strong class="faq-highlight">on this device</strong>. Nothing about you leaves the device. Any zibbed URL is
         shown exactly once. Clearing site data forgets the token.
       </p>
-      <p class="faq-q">// what runs this?</p>
+      <p class="faq-q">What runs this?</p>
       <p class="faq-a">
         A Go backend with an observability stack around it. Both the general
-        <a href="https://zibs.app/public-dashboards/6b58a8bd322f4bbfb06f4b285055028c">metrics dashboard</a>
-        and the <a href="https://github.com/dvinubius/zibs">source code</a>
-        are public.
+        metrics dashboard and the source code are public.
       </p>
     </div>
   </dialog>

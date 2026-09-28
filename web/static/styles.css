@@ -1,5 +1,5 @@
 /* zibs frontend — Dinu Barbu brand system.
-   Tokens copied from design-system/tokens; square corners, no shadows,
+   Tokens copied from design-system/tokens; 2px corners, no shadows,
    accent dosage: wordmark brackets, one primary CTA, one line in the terminal.
    Themes follow the design system: semantic aliases on :root (light),
    overridden under [data-theme="dark"]. Pair rule: Ember on light,
@@ -44,6 +44,11 @@
   --track-heading: -0.022em;
   --track-wordmark: -0.018em;
 
+  /* 2px corners on buttons, surfaces and controls; not on rules or type. */
+  --radius: 2px;
+  /* Every colour and opacity state change (hover, focus) runs at this pace. */
+  --transition-state: 150ms ease-in-out;
+
   /* Semantic aliases — light theme default */
   --surface-page: var(--paper);
   --surface-card: var(--inline-code-on-light);
@@ -59,6 +64,7 @@
   --input-bg: var(--paper);
   --text-body: var(--ink);
   --text-muted: var(--stone);
+  --text-secondary: var(--ink); /* running text a step below body; same on light */
   --accent: var(--ember);
   --accent-on-hover: var(--ember-hover);
   --button-fill: var(--ember);
@@ -83,6 +89,7 @@
   --input-bg: var(--ink);
   --text-body: var(--paper);
   --text-muted: var(--muted-on-dark);
+  --text-secondary: var(--muted-strong);
   --accent: var(--ember-light);
   --accent-on-hover: var(--ember-light); /* no darker hover defined on dark */
   --button-fill: var(--ember-light);
@@ -93,6 +100,21 @@
 }
 
 * { box-sizing: border-box; }
+
+/* Colour state changes fade rather than snap. Deliberately not gated on
+   prefers-reduced-motion: nothing moves, only colour changes, which is what
+   reduced-motion asks for in place of motion. */
+
+a,
+button,
+input {
+  transition:
+    color var(--transition-state),
+    background-color var(--transition-state),
+    border-color var(--transition-state);
+}
+
+button { border-radius: var(--radius); }
 
 body {
   margin: 0;
@@ -219,11 +241,12 @@ h1 {
 
 .lede a:hover { color: var(--accent-on-hover); }
 
-/* Form card — flat neutral fill, square, no border, no shadow */
+/* Form card — flat neutral fill, 2px corners, no border, no shadow */
 
 #shorten-form {
   margin-top: 36px;
   background: var(--surface-card);
+  border-radius: var(--radius);
   padding: 32px;
 }
 
@@ -243,7 +266,7 @@ input {
   background: var(--input-bg);
   color: var(--text-body);
   border: 1px solid var(--hairline);
-  border-radius: 0;
+  border-radius: var(--radius);
   padding: 11px 12px;
   font-family: var(--font-mono);
   font-size: 14px;
@@ -315,7 +338,7 @@ input:disabled {
   background: var(--button-fill);
   color: var(--button-text);
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius);
   padding: 12px 24px;
   font-family: var(--font-sans);
   font-size: 15px;
@@ -337,15 +360,21 @@ input:disabled {
 }
 
 /* Fade swap — form and result trade places; app.js reads the duration from
-   here. Kept even under prefers-reduced-motion: an opacity crossfade is the
-   recommended reduced-motion substitute, not motion itself. */
+   here, taking the first one listed, so opacity must stay first. Kept even
+   under prefers-reduced-motion: an opacity crossfade is the recommended
+   reduced-motion substitute, not motion itself. */
 
 #shorten-form,
 #result,
-.button-copy,
 .copy-confirm,
 .about-dialog {
   transition: opacity 340ms ease;
+}
+
+.button-copy {
+  transition:
+    opacity 340ms ease,
+    border-color var(--transition-state);
 }
 
 .is-fading { opacity: 0; }
@@ -370,6 +399,7 @@ input:disabled {
 .terminal {
   background: var(--surface-code);
   border: 1px solid var(--code-border);
+  border-radius: var(--radius);
   padding: 24px 28px;
   font-family: var(--font-mono);
   font-size: 13px;
@@ -400,7 +430,7 @@ input:disabled {
   background: transparent;
   color: var(--terminal-button-text);
   border: 1px solid var(--terminal-button-border);
-  border-radius: 0;
+  border-radius: var(--radius);
   padding: 10px 22px;
   font-family: var(--font-mono);
   font-size: 14px;
@@ -487,14 +517,14 @@ input:disabled {
 
 .button-again:hover { color: var(--text-body); }
 
-/* About dialog — brand card in the top layer: square, flat, no chrome.
+/* About dialog — brand card in the top layer: 2px corners, flat, no chrome.
    Centered card on desktop; full-screen under the 500px breakpoint. */
 
 .about-dialog {
   background: var(--surface-card);
   color: var(--text-body);
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius);
   padding: 0;
   width: min(520px, calc(100vw - 48px));
   overflow-y: auto;
@@ -518,16 +548,19 @@ input:disabled {
 
 .about-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 500;
   letter-spacing: var(--track-heading);
 }
+
+/* Space Grotesk's own × — the brand glyph, which ships in the webfont. */
 
 .about-close {
   background: none;
   border: none;
   padding: 4px;
-  font-size: 15px;
+  font-family: var(--font-sans);
+  font-size: 28px;
   line-height: 1;
   color: var(--text-muted);
   cursor: pointer;
@@ -536,21 +569,38 @@ input:disabled {
 .about-close:hover { color: var(--text-body); }
 
 .about-lede {
-  margin: 16px 0 0;
+  margin: 28px 0 28px;
   font-size: 15px;
 }
 
+/* Questions read as headings, not asides: body ink, sans at 500, a step
+   larger than the answers. On dark, weight alone barely separates them —
+   light-on-dark text reads heavier — so the answers step down to
+   --text-secondary. Spacing groups each question with its answer: a wide
+   gap between pairs, a narrow one inside a pair. The first question keeps
+   the lede's bottom margin. */
+
 .faq-q {
-  margin: 24px 0 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-body);
 }
 
+.faq-a + .faq-q { margin-top: 32px; }
+
 .faq-a {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   font-size: 14px;
   line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* A key figure inside an answer: back up to body ink, at the questions'
+   weight. */
+.faq-highlight {
+  font-weight: 500;
+  color: var(--text-body);
 }
 
 .faq-a a {
@@ -570,6 +620,7 @@ input:disabled {
   width: calc(100% - 48px); /* box edges align with the text column */
   max-width: 592px;
   border: 1px solid var(--hairline);
+  border-radius: var(--radius);
   padding: 24px;
   margin-bottom: 32px;
 }
@@ -671,6 +722,7 @@ input:disabled {
     height: 100dvh;
     max-height: 100dvh;
     margin: 0;
+    border-radius: 0; /* full-screen: its edges are the screen's */
   }
 
   /* Fill the full-screen dialog so empty space below the content is part

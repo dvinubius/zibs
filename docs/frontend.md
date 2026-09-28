@@ -8,6 +8,8 @@ zibs provides a small, public, same-origin interface for creating short links. I
 
 The page follows the Dinu Barbu design system: Space Grotesk and Azeret Mono webfonts, brand tokens, a `zibs.` type wordmark, and a `z.` favicon. Dark is the default theme — the OS `prefers-color-scheme` is not consulted — and the header toggle stores a visitor's own choice under the `localStorage` key `theme`, applied by an inline script in `<head>` before first paint. The footer carries the personal wordmark and links to `dinubarbu.com` and GitHub.
 
+Buttons, the form card, inputs, the result terminal, the About dialog, and the colophon box take the design system's 2px corner radius (`--radius`). Hover and focus colour changes on links, buttons, and inputs fade over 150ms ease-in-out (`--transition-state`); this is not switched off under `prefers-reduced-motion`, since only colour changes and nothing moves. The About dialog's close button is Space Grotesk's own `×`, which ships in the bundled webfont.
+
 ## Delivery
 
 The page and its assets are embedded in the Go binary from `web/`:
