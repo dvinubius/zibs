@@ -13,21 +13,16 @@ flowchart TB
     subgraph host[Hetzner VM / Docker host]
         caddyData[(caddy_caddy-data / caddy_caddy-config<br/>certificates and config<br/>owned by Hetzner-One)]
         subgraph edge[zibs-edge · owned by Hetzner-One]
-            caddyAppEdge[Caddy<br/>attachment]
+            caddy[Caddy · Hetzner-One project<br/>TCP 80, 443<br/>UDP 443]
             zibs[zibs<br/>TCP 8080]
         end
         zibsData[(zibs-data<br/>SQLite volume)]
-        caddy[Caddy · Hetzner-One project<br/>TCP 80, 443<br/>UDP 443]
     end
 
     browser ==>|HTTPS| caddy
-    caddy -.-|network attachment| caddyAppEdge
-    caddyAppEdge -->|HTTP TCP 8080| zibs
+    caddy -->|HTTP TCP 8080| zibs
     zibs -->|/data/zibs.db<br/>local file I/O| zibsData
     caddy -->|store certificate| caddyData
-
-    classDef networkAttachment stroke-dasharray: 5 5;
-    class caddyAppEdge networkAttachment;
 ```
 
 > **Article note:** [“zibs: A Link Shortener Designed to Connect Us”](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us?r=dqiys)
