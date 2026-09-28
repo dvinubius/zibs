@@ -260,12 +260,15 @@ Git, but are not a replacement for that runtime state.
 
 ### Telemetry smoke test
 
-`scripts/telemetry-smoke-test.sh` runs on the VM after each full deployment and
-can be run manually from `/opt/zibs`. It sends a zibs health request, verifies
-that Prometheus reports both `up{job="zibs"} = 1` and `up{job="node"} = 1`.
-It then waits for a zibs log entry in Loki, checks Grafana's HTTP API and its
-provisioned Prometheus and Loki data sources, and verifies both provisioned
-dashboard UIDs. This is an integration check of the complete metrics-and-logs
+`scripts/telemetry-smoke-test.sh` runs on the VM after each full or
+observability deployment and can be run manually from `/opt/zibs`. It sends a
+zibs health request, waits for Loki and Alloy readiness, and verifies that
+Prometheus's active `zibs` and `node` targets are up. It then waits for a zibs
+log entry written during the test to reach Loki, checks Grafana's HTTP API and
+its provisioned Prometheus and Loki data sources, and verifies both provisioned
+dashboard UIDs. Dashboard-only deployments run
+`telemetry-smoke-test.sh dashboard`, which checks only Grafana and the two
+dashboards after one provisioning poll. The full mode is an integration check of the complete metrics-and-logs
 path, not merely a container liveness check.
 
 ### Alerting status
@@ -332,7 +335,7 @@ a concrete V2 dashboard definition (`elements` and `layout`) even when the
 drawer says **Model: Classic**. The file provider rejects that V2 output. The
 [fix is merged for Grafana `13.3.x`](https://github.com/grafana/grafana/pull/131718);
 until this deployment runs a release that contains it, use the
-[V2-layout conversion procedure](deployment-runbook.md#convert-a-grafana-v2-layout)
+[V2-layout conversion procedure](deployment-runbook.md#convert-a-grafana-v2-layout-export)
 in the deployment runbook. Do not edit the container path
 `/var/lib/grafana/dashboards`: it is a read-only bind mount. The repository is
 the durable source of truth.
@@ -389,7 +392,7 @@ Run the telemetry smoke test from `/opt/zibs`:
 ```
 
 It sends a health request, confirms Prometheus sees both the `zibs` and `node`
-targets as up, waits for a zibs log in Loki, checks Grafana and both data
+targets as up, waits for a fresh zibs log in Loki, checks Grafana and both data
 sources, and checks both provisioned dashboard UIDs. A pass verifies the
 telemetry path end to end; it does not replace reviewing application behavior.
 

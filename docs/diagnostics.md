@@ -5,8 +5,9 @@ whole metrics-and-logs path in one pass. When it fails — or when you need to
 look at one component in isolation — the commands below check each link of the
 chain individually.
 
-All commands run from an operator machine with the deployment variables
-loaded:
+All commands run from an operator machine with a local, untracked
+`.env.production` holding `DEPLOY_HOST` and `DEPLOY_SSH_KEY` (the path to the
+operator's own key, not the GitHub deployment key) loaded:
 
 ```bash
 set -a
@@ -14,9 +15,11 @@ source .env.production
 set +a
 ```
 
-They connect as `root@$DEPLOY_HOST` using `$DEPLOY_SSH_KEY`, matching the
-[deployment runbook](deployment-runbook.md). The telemetry services publish no
-host ports, so everything goes through SSH and the VM's Docker networks.
+They connect as `root@$DEPLOY_HOST`. Compose calls go through
+`scripts/compose.sh`, which loads the VM's `.env`, the pinned `.env.image`,
+and the production profile (see the [deployment runbook](deployment-runbook.md)).
+The telemetry services publish no host ports, so everything goes through SSH
+and the VM's Docker networks.
 
 ## Application health
 
@@ -38,14 +41,14 @@ healthcheck blocks, so "running" does not prove readiness:
 
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
-  'cd /opt/zibs && docker compose --profile production ps'
+  '/opt/zibs/scripts/compose.sh ps'
 ```
 
 Inspect recent startup or connection errors for a suspect service:
 
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
-  'cd /opt/zibs && docker compose --profile production logs --tail=100 loki alloy'
+  '/opt/zibs/scripts/compose.sh logs --tail=100 loki alloy'
 ```
 
 ## Prometheus: are the zibs and node targets up?
@@ -55,7 +58,7 @@ Query Prometheus from inside its own container. Both target values should be
 
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
-  'cd /opt/zibs && docker compose --profile production exec -T prometheus \
+  '/opt/zibs/scripts/compose.sh exec -T prometheus \
   wget -qO- "http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D~%22zibs%7Cnode%22%7D"'
 ```
 
@@ -63,7 +66,7 @@ List all scrape targets and their last errors:
 
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
-  'cd /opt/zibs && docker compose --profile production exec -T prometheus \
+  '/opt/zibs/scripts/compose.sh exec -T prometheus \
   wget -qO- http://127.0.0.1:9090/api/v1/targets'
 ```
 
@@ -82,7 +85,7 @@ excluded. To verify the series through private Prometheus:
 
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" \
-  'cd /opt/zibs && docker compose --profile production exec -T prometheus \
+  '/opt/zibs/scripts/compose.sh exec -T prometheus \
   wget -qO- "http://127.0.0.1:9090/api/v1/query?query=node_filesystem_avail_bytes%7Bjob%3D%22node%22%2Cmountpoint%3D%22%2F%22%7D"'
 ```
 
@@ -95,11 +98,11 @@ ports. Query their readiness endpoints from the VM host by container IP:
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" '
   cd /opt/zibs
 
-  loki_id=$(docker compose ps -q loki)
+  loki_id=$(./scripts/compose.sh ps -q loki)
   loki_ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" "$loki_id")
   curl --fail --silent --show-error "http://$loki_ip:3100/ready"
 
-  alloy_id=$(docker compose ps -q alloy)
+  alloy_id=$(./scripts/compose.sh ps -q alloy)
   alloy_ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" "$alloy_id")
   curl --fail --silent --show-error "http://$alloy_ip:12345/-/ready"
 '
@@ -114,7 +117,7 @@ Confirms the full log path (zibs stdout → Alloy → Loki) end to end:
 ```bash
 ssh -i "$DEPLOY_SSH_KEY" "root@$DEPLOY_HOST" '
   cd /opt/zibs
-  loki_id=$(docker compose ps -q loki)
+  loki_id=$(./scripts/compose.sh ps -q loki)
   loki_ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" "$loki_id")
 
   curl --fail --silent --show-error --get \

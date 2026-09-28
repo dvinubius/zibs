@@ -72,8 +72,10 @@ Telemetry ports are inventoried separately in
 ## Runtime configuration
 
 `ADMIN_TOKEN` is required. It protects administrative endpoints and must be a
-high-entropy secret, never committed to Git. The deployment script writes it to
-`/opt/zibs/.env` on the VM with mode `0600`.
+high-entropy secret, never committed to Git. It lives only in the VM-owned
+`/opt/zibs/.env` (mode `0600`), which deployments never write. The image is
+pinned by digest in `/opt/zibs/.env.image`, written by each full deployment;
+see the [deployment runbook](deployment-runbook.md).
 
 Caddy configuration, including explicit hostnames, lives in the [Hetzner-One](https://github.com/dvinubius/hetzner-one)
 `Caddyfile`, deployed to `/opt/caddy`; it is not part of a zibs deployment. Change a domain only there, with matching DNS

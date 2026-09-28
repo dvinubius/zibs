@@ -99,16 +99,22 @@ directory. Its private metrics endpoint is `http://127.0.0.1:9091/metrics`;
 do not expose it through a public reverse proxy.
 
 Docker Compose is also available when you want the containerized shape.
+Compose never builds zibs: it runs the image named by `ZIBS_IMAGE`, which in
+production is a GHCR digest (see the [deployment runbook](docs/deployment-runbook.md)).
 It requires the external `zibs-edge` network. On production, deploy
 [Hetzner-One](https://github.com/dvinubius/hetzner-one) first; for an
 isolated local setup, create it once with `docker network create zibs-edge`.
 
 ```bash
-ADMIN_TOKEN=development-only-token docker compose up --build
+docker build -t zibs:local .
+ZIBS_IMAGE=zibs:local ADMIN_TOKEN=development-only-token \
+  GRAFANA_ADMIN_PASSWORD=development-only-password docker compose up zibs
 ```
 
-The application is then available at `http://127.0.0.1:8080`. The Compose
-configuration keeps the metrics port private.
+`GRAFANA_ADMIN_PASSWORD` is required because Compose interpolates every
+service, including the production-profile Grafana. The application is then
+available at `http://127.0.0.1:8080`. The Compose configuration keeps the
+metrics port private.
 
 Run the complete test suite with:
 

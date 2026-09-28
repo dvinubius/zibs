@@ -1,7 +1,9 @@
+name: zibs
 services:
   zibs:
-    build:
-      context: .
+    # A published GHCR digest from the VPS-owned .env.image. The host never
+    # builds zibs; run Compose through scripts/compose.sh.
+    image: ${ZIBS_IMAGE:?Set ZIBS_IMAGE to a published image digest in .env.image.}
     environment:
       ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN in the deployment environment.}
       # Container loopback would exclude the future Prometheus container.

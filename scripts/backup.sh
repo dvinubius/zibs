@@ -18,8 +18,7 @@ if [[ -e $backup_path ]]; then
 	exit 1
 fi
 
-cd "$project_dir"
-docker compose run --rm --no-deps --user 0 \
+"$project_dir/scripts/compose.sh" run --rm --no-deps --user 0 \
 	--volume "$backup_dir:/backups" \
 	--entrypoint /usr/local/bin/zibs \
 	zibs backup --database /data/zibs.db --output "/backups/$backup_name"
