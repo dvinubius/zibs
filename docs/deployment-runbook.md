@@ -22,6 +22,53 @@ Caddy.
 
 ## How a push deploys
 
+Every run tests first. Pull requests stop there; pushes to `main` and manual
+runs continue to planning, and only the planned mode decides whether an image
+is built and what reaches the VPS.
+
+```mermaid
+flowchart LR
+  subgraph test["1 · Test: no VPS contact"]
+    direction TB
+    t1["go vet and<br/>go test"] --> t2["Deployment script tests,<br/>fake SSH and Docker"]
+    t2 --> t3["Validate the five<br/>Classic dashboards"]
+    t3 --> t4["Render Compose with<br/>a placeholder digest"]
+  end
+  subgraph plan["2 · Plan: read-only SSH"]
+    direction TB
+    p1["Install the SSH key<br/>and pinned host key"] --> p2["Read the VPS manifest:<br/>last verified commit"]
+    p2 --> p3{"Manual run<br/>with force_full?"}
+    p3 -- no --> p4["classify-deploy.sh: paths<br/>changed since that commit"]
+    p3 -- yes --> p5["Mode: none, dashboard,<br/>observability, or full"]
+    p4 --> p5
+  end
+  subgraph image["3 · Image: full mode only"]
+    direction TB
+    i1["Build for linux/amd64,<br/>tag with the commit"] --> i2["Push to GHCR"]
+    i2 --> i3["Output the<br/>@sha256 digest"]
+  end
+  subgraph deploy["4 · Deploy: VPS changes"]
+    direction TB
+    d1["Confirm the commit is<br/>still the head of main"] --> d2["git archive the bundle,<br/>upload it to staging"]
+    d2 --> d3["Take the host lock,<br/>check mode preconditions"]
+    d3 --> d4["Snapshot live files,<br/>.env.image, manifest"]
+    d4 --> d5["Apply the mode<br/>and verify it"]
+    d5 --> d6{"Every check<br/>passed?"}
+    d6 -- yes --> d7["Write the manifest,<br/>keep five snapshots"]
+    d6 -- no --> d8["Restore the snapshot<br/>and verify it"]
+  end
+  test -- "push or<br/>manual run" --> plan
+  plan -- full --> image
+  image -- digest --> deploy
+  plan -- "dashboard or<br/>observability" --> deploy
+```
+
+A `none` plan ends the run after planning. The step 4 preconditions change no
+live files or containers: a full deployment checks `zibs-edge` and pulls the
+digest, and an observability or dashboard deployment requires a running zibs
+or Grafana respectively. Every mode renders the bundled `compose.yaml` against
+the live `.env` before the snapshot.
+
 1. **Test.** `go vet`, Go tests, the deployment shell tests, dashboard JSON
    validation, and Compose rendering. Nothing contacts the VPS before these
    pass.
