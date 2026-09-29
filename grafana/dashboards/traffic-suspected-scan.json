@@ -8,7 +8,7 @@
   },
   "uid": "zibs-traffic-suspected",
   "title": "zibs suspected scans",
-  "description": "Requests matching the documented probe-path rules. Classification is heuristic.",
+  "description": "Requests that cannot be ordinary use: unknown paths, crawler and browser files, and wrong methods. Classification is heuristic.",
   "tags": [
     "zibs",
     "operator",
@@ -366,8 +366,8 @@
     },
     {
       "id": 9,
-      "title": "Request latency (normal range)",
-      "description": "Rolling average, p50, and p95, visually capped so isolated slow requests do not obscure normal work. Use the bounded private Loki link for completed requests taking at least one second. p99 is intentionally omitted at this traffic volume.",
+      "title": "Request latency",
+      "description": "Rolling average, p50, and p95. The y-axis scales to the slowest value in view, so at low traffic one slow request can dominate; widen the range before reading a spike. The request-log panel below shows each request's duration_ms. p99 is intentionally omitted at this traffic volume.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -442,7 +442,7 @@
     {
       "id": 52,
       "title": "Most probed paths in selected period",
-      "description": "Top request paths matching the documented suspected-scan rules. Paths are private diagnostics, not Prometheus labels.",
+      "description": "Top request paths classified as suspected scans. Paths are private diagnostics, not Prometheus labels.",
       "type": "table",
       "datasource": {
         "type": "loki",

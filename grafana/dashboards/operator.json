@@ -385,8 +385,8 @@
     },
     {
       "id": 9,
-      "title": "Request latency (normal range)",
-      "description": "Rolling average, p50, and p95, visually capped so isolated slow requests do not obscure normal work. Use the bounded private Loki link for completed requests taking at least one second. p99 is intentionally omitted at this traffic volume.",
+      "title": "Request latency",
+      "description": "Rolling average, p50, and p95. The y-axis scales to the slowest value in view, so at low traffic one slow request can dominate; widen the range before reading a spike. Use the bounded private Loki link for completed requests taking at least one second. p99 is intentionally omitted at this traffic volume.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -539,8 +539,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 6,
+        "x": 0,
         "y": 41
       },
       "targets": [
@@ -580,84 +580,6 @@
       }
     },
     {
-      "id": 13,
-      "title": "Connection waits in selected period",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 37
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(zibs_db_wait_count_total[$__range])) or vector(0)",
-          "legendFormat": "waits"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "none",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      }
-    },
-    {
-      "id": 14,
-      "title": "Connection wait duration in selected period",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 41
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(zibs_db_wait_duration_seconds_total[$__range])) or vector(0)",
-          "legendFormat": "wait duration"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "none",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      }
-    },
-    {
       "id": 16,
       "title": "Expiry cleanup duration",
       "description": "P95 of successful expiry-cleanup runs over the trailing 30 days.",
@@ -668,8 +590,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 41
       },
       "targets": [
@@ -764,7 +686,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 37
       },
@@ -787,8 +709,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 6,
+        "x": 6,
         "y": 37
       },
       "fieldConfig": {
@@ -1792,7 +1714,7 @@
     {
       "id": 43,
       "title": "Request count by traffic class",
-      "description": "Completed requests since traffic classification was deployed, partitioned into marked synthetic traffic, known probe patterns, and other unclassified traffic. Earlier requests cannot be classified. Class-specific private dashboards are in the Zibs folder.",
+      "description": "Completed requests since traffic classification was deployed, partitioned into marked synthetic traffic, requests that cannot be ordinary use (suspected scans), and other unclassified traffic. Earlier requests cannot be classified. Class-specific private dashboards are in the Zibs folder.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",

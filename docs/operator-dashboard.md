@@ -1,18 +1,11 @@
 # Operator dashboard
 
-Use the private **zibs operator overview** dashboard to triage a time range. Start with availability and request behavior, then narrow into database, logs, runtime, and host capacity. See [Observability](observability.md) for access and the full runbook.
+Use the private **zibs operator overview** dashboard to triage a time range. Start with availability and request behavior, then narrow into database, logs, runtime, and host capacity. See [Observability](observability.md) for access and [Using the dashboards](dashboard-guide.md) for how to read the panels in real scenarios.
 
-The operator overview retains **all** application traffic and includes a
-request-count panel broken down by `traffic_class`. Three additional private
-dashboards in the Zibs folder show the same request and link-operation panels
-for **synthetic activity**, **suspected scans**, and **other activity**.
-The other view excludes classified synthetic requests and known probe paths.
-`other` means unclassified, not verified human; health checks and unrecognized
-bots can remain there. These dashboards omit service, runtime, host, and global
-database panels because those measurements cannot be divided by request class.
-The suspected-scans dashboard also lists the most probed paths in the selected
-period and shows the matching request logs. See [Traffic classes](observability.md#traffic-classes)
-for the exact rules and the historical-data limit.
+The overview covers all application traffic. Three further private dashboards
+repeat its request and link-operation panels for one
+[traffic class](observability.md#traffic-classes) each; see
+[The five dashboards](dashboard-guide.md#the-five-dashboards).
 
 ## Overview
 
@@ -31,7 +24,7 @@ for the exact rules and the historical-data limit.
 
 - **Request count by route and status** — locates the route and outcome driving traffic.
 - **Response count by status** — highlights changes in successful, client-error, and server-error responses.
-- **Request latency (normal range)** — checks ordinary request latency without isolated slow requests distorting the view.
+- **Request latency** — tracks average, p50, and p95 latency; at low traffic one slow request can dominate the automatic y-axis.
 - **In-flight requests** — shows concurrent work; sustained elevation can indicate blocked handlers.
 
 ## Database
@@ -39,9 +32,7 @@ for the exact rules and the historical-data limit.
 ![Database panels](assets/dash-database.png)
 
 - **Link operation count** — compares create, follow, and delete outcomes.
-- **SQLite pool context** — checks open, in-use, and idle database connections.
-- **Connection waits in selected period** — reveals contention for SQLite connections.
-- **Connection wait duration in selected period** — shows how costly that contention was.
+- **SQLite pool context** — checks open, in-use, and idle database connections. zibs sets no pool limit, so contention shows as SQLite lock waits rather than pool waits.
 - **Expiry cleanup duration** — checks whether scheduled expired-link removal is slow or failing.
 - **Database operation duration** — isolates slow database operations and their result.
 - **Database errors by operation and kind** — identifies failing operations and error categories.
@@ -86,3 +77,7 @@ for the exact rules and the historical-data limit.
 ## Logs
 
 - **Recent zibs logs** — correlates the selected time range with structured request, lifecycle, and cleanup records; use it after a metric identifies the symptom.
+
+## Traffic classes
+
+- **Request count by traffic class** — splits completed requests into synthetic, suspected-scan, and other traffic since classification was deployed; open the matching class dashboard to drill in.

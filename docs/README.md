@@ -16,6 +16,7 @@ boundaries. These documents describe the implementation and how to operate it.
 - [Database backup runbook](database-backup-runbook.md) — create, copy, and restore-verify SQLite backups.
 - [Deployment architecture](deployment-architecture.md) — public request path, networks, volumes, and security boundaries. It deliberately excludes telemetry.
 - [Observability](observability.md) — metrics, logs, the Prometheus/Alloy/Loki/Grafana stack, smoke tests, and the operator dashboard.
+- [Using the dashboards](dashboard-guide.md) — how to read the private Grafana dashboards, with scenarios, query recipes, and practice drills.
 - [Manual diagnostics](diagnostics.md) — per-component checks of the deployed service and telemetry chain for when the smoke test is not enough.
 - [Deferred observability work](v2-deferred-observability.md) — intentionally postponed telemetry and alerting work, with the conditions for revisiting it.
 - [V2 topology improvements](v2-topology-improvements.md) — later removal of zibs-owned host monitoring and clearer network segmentation after Hetzner-One becomes authoritative for host observability.

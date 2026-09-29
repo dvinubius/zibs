@@ -147,10 +147,13 @@ Every completed application request has exactly one `traffic_class` value:
 | Value | Rule | Meaning |
 |---|---|---|
 | `synthetic` | User-Agent starts with `zibs-traffic-lab/` | Request marked by the synthetic generator. The marker is attribution, not authentication. |
-| `suspected_scan` | Known probe paths: `.php`, `/wp-`, `/xmlrpc`, or observed POST probes for `/api`, `/graphql`, `/_next`, `/_rsc`, and `/rsc` | Heuristic scanner classification. |
-| `other` | Neither rule matched | Unclassified traffic; it can include people, bots, and health checks. |
+| `other` | An application route with its own method (`/`, `/static/*`, `/health`, `/links`, `/admin/links`, `/admin/links/{code}`, `/admin/tokens`, `/admin/tokens/{id}`), or a `GET`/`HEAD` to a path shaped like a short code: exactly eight letters or digits | Possible ordinary use. It can still include bots, health checks, and your own admin calls. |
+| `suspected_scan` | Everything else: other paths, and application paths with a wrong method | Requests that cannot be ordinary use of zibs: probes (`/.env`, `/wp-login.php`, `/admin`), crawler and browser files (`/robots.txt`, `/apple-touch-icon.png`), and wrong methods (`POST /graphql`). |
 
-The synthetic rule takes precedence when both match. The generator sends its
+The synthetic rule takes precedence. Every short code ever issued has eight
+characters from the same alphabet, so a path of any other shape cannot be a
+link. A link that is mangled when copied, for example with trailing
+punctuation, therefore counts as a suspected scan. The generator sends its
 User-Agent on token provisioning, link creation, and redirect requests. Raw
 paths and User-Agents are never Prometheus labels. Request logs include only the
 bounded `traffic_class`; paths remain in the private log body. Link-operation
@@ -160,11 +163,15 @@ attributed reliably to an individual request class.
 
 The original operator dashboard remains the all-traffic view. Private
 synthetic, suspected-scan, and other dashboards filter request and
-link-operation metrics by class. The other dashboard excludes both marked
-synthetic traffic and known probes, but `other` is not a verified-human count.
-Historical metrics and logs from before this class was recorded cannot be
-partitioned retroactively. Keep the scan view alongside the visitor view;
-do not discard probe requests at collection time.
+link-operation metrics by class. The other dashboard excludes marked
+synthetic traffic and every request that cannot be ordinary use, so its link
+misses are code-shaped follows only. `other` is still not a verified-human
+count. Historical metrics and logs from before this class was recorded cannot
+be partitioned retroactively. Until the route-based rule above was deployed,
+`suspected_scan` matched only a fixed list of probe paths (`.php`, `/wp-`,
+`/xmlrpc`, and a few `POST` probes), so earlier `other` data includes
+unrecognised probes and crawler files. Keep the scan view alongside the
+visitor view; do not discard probe requests at collection time.
 
 Durations use seconds. HTTP and database-operation histograms start at 0.5 ms
 and include 1 ms, 2 ms, 3 ms, and 5 ms buckets before the wider service-level
@@ -355,7 +362,7 @@ Be mindful of other processes using port 3000 locally, whether through `localhos
 
 ### Change the dashboard layout
 
-Both dashboards use Grafana's **Classic** JSON model and are provisioned from
+All five dashboards use Grafana's **Classic** JSON model and are provisioned from
 the repository, so Grafana exports UI edits instead of saving them to its
 database. Grafana `13.0.x` has an upstream regression: **Save dashboard** emits
 a concrete V2 dashboard definition (`elements` and `layout`) even when the
@@ -367,32 +374,11 @@ in the deployment runbook. Do not edit the container path
 `/var/lib/grafana/dashboards`: it is a read-only bind mount. The repository is
 the durable source of truth.
 
-### Normal operating checks
+### Reading the dashboards
 
-Use the dashboard time range that covers the reported issue, then review:
-
-1. **Availability:** Prometheus `up` should be `1`; a missing target means the
-   scrape path, application metrics listener, or network needs investigation.
-2. **Request behavior:** compare request rate, status distribution, and the
-   normal-range latency panel. Its visual cap keeps isolated slow requests
-   from obscuring ordinary millisecond-scale behavior. Check **Requests over
-   2 seconds in selected period** and then private Loki logs for the exact
-   duration and request context of any slow work. Sustained 5xx responses
-   require application-log review.
-3. **Link operations and cleanup:** look for failed create, follow, delete, or
-   expiry-cleanup results. Expired links are removed at startup and every 24
-   hours.
-4. **SQLite pool and latency:** elevated waits, in-use connections, or database
-   latency can indicate a stuck or overloaded local process.
-5. **Logs:** use the Loki panel filtered to `service=zibs` to correlate a time
-   window with JSON request, startup, shutdown, or cleanup records. Keep
-   request-specific fields in the log body, not Loki labels.
-6. **Host capacity:** check CPU, memory, and load together before diagnosing
-   saturation. The filesystem panels intentionally cover only `/`: on this VM
-   it is the ext4 filesystem that holds Docker, SQLite, backups, and telemetry
-   state. Compare free bytes and headroom with `df -B1 /` on the VM. Disk and
-   network panels exclude loopback and Docker virtual interfaces to focus on
-   host resource use.
+[Using the dashboards](dashboard-guide.md) teaches how to read the private
+dashboards: a quick routine check, investigation scenarios, query recipes,
+and practice drills, including validating the in-flight request gauge.
 
 ### Host-metrics boundary
 
@@ -422,36 +408,6 @@ It sends a health request, confirms Prometheus sees both the `zibs` and `node`
 targets as up, waits for a fresh zibs log in Loki, checks Grafana and both data
 sources, and checks both provisioned dashboard UIDs. A pass verifies the
 telemetry path end to end; it does not replace reviewing application behavior.
-
-### Validating the in-flight request gauge in production
-
-Normal requests are too brief to reliably appear in a scrape. After deploying
-the application change, use an already-authorized creation token to send one
-deliberately incomplete request body and keep its input stream open for at
-least 70 seconds. The route authenticates first, then waits for the incomplete
-JSON body; it cannot create a link. This consumes that single-use creation
-token, so issue a disposable one specifically for the check.
-
-In one terminal, keep the request open (replace the placeholder only in your
-shell; do not put a real token in a command history or commit):
-
-```bash
-read -rs ZIBS_CREATION_TOKEN
-export ZIBS_CREATION_TOKEN
-{ printf '{'; sleep 70; } | curl --http1.1 --no-buffer --request POST --upload-file - \
-  --header 'Expect:' \
-  --header 'Transfer-Encoding: chunked' \
-  --header "Authorization: Bearer $ZIBS_CREATION_TOKEN" \
-  --header 'Content-Type: application/json' https://zibs.app/links
-unset ZIBS_CREATION_TOKEN
-```
-
-While it is open, wait for one Prometheus scrape and confirm the private
-operator dashboard's **In-flight requests** panel reads `1`; it may take up to
-30 seconds to change. Once the stream closes, wait for the next scrape and
-confirm it returns to `0`. The request should end with HTTP 400 because its
-body is invalid, which is expected. Do not use the public dashboard for this
-check: the panel is intentionally operator-only.
 
 ### Share only the public dashboard
 

@@ -8,7 +8,7 @@
   },
   "uid": "zibs-traffic-other",
   "title": "zibs other activity (unclassified)",
-  "description": "Unclassified requests, excluding marked synthetic traffic and known probe patterns. This does not prove a human visitor.",
+  "description": "Application routes and code-shaped short-link follows, excluding marked synthetic traffic. Link misses here are code-shaped only. This does not prove a human visitor.",
   "tags": [
     "zibs",
     "operator",
@@ -366,8 +366,8 @@
     },
     {
       "id": 9,
-      "title": "Request latency (normal range)",
-      "description": "Rolling average, p50, and p95, visually capped so isolated slow requests do not obscure normal work. Use the bounded private Loki link for completed requests taking at least one second. p99 is intentionally omitted at this traffic volume.",
+      "title": "Request latency",
+      "description": "Rolling average, p50, and p95. The y-axis scales to the slowest value in view, so at low traffic one slow request can dominate; widen the range before reading a spike. The request-log panel below shows each request's duration_ms. p99 is intentionally omitted at this traffic volume.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
