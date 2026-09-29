@@ -307,7 +307,7 @@
     },
     {
       "id": 101,
-      "title": "Requests and latency",
+      "title": "Requests, latency, and link operations",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -375,7 +375,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 14
       },
@@ -405,7 +405,7 @@
     },
     {
       "id": 102,
-      "title": "Link operations",
+      "title": "Probed paths",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -427,9 +427,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 23
+        "w": 12,
+        "x": 12,
+        "y": 14
       },
       "targets": [
         {
@@ -452,7 +452,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 23
       },
       "targets": [
         {
@@ -474,7 +474,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 32
       },
       "collapsed": false,
       "panels": []
@@ -492,7 +492,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 33
       },
       "targets": [
         {

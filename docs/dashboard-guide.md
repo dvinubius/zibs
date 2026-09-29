@@ -88,7 +88,8 @@ Three consequences are worth memorising:
 
 - **Two kinds of stat panel.** Stats named "in selected period" follow the
   time picker. The **Business summary** row and the public dashboard's
-  redirect and creation stats always show fixed 24-hour and 7-day windows.
+  redirect, link-miss, and creation stats always show fixed 24-hour and 7-day
+  windows.
 - **Counts are estimates.** `increase()` extrapolates to the edges of its
   window, so a stat can read 11.7 requests. Over short windows and small
   numbers, treat ±1 as noise. Loki gives exact counts; see

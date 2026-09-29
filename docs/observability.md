@@ -281,9 +281,11 @@ the repository at startup:
   load, root-filesystem, disk-I/O, and network panels, plus the Loki log panel
   filtered to `service=zibs`.
 - **zibs public metrics** is a deliberately metrics-only dashboard. It has no
-  variables or annotations, and its queries return only aggregate request and
-  status counts, latency percentiles, 24-hour/7-day redirect and creation
-  totals, the active-link count, and the Prometheus `up` signal.
+  variables or annotations, and its queries return only aggregate request
+  counts by non-admin route template and status, latency percentiles,
+  link-operation counts, database operation durations, 24-hour/7-day redirect,
+  link-miss, and creation totals, the active-link count, and the Prometheus
+  `up` signal (shown as yes/no).
 
 `grafana-data` persists Grafana's own SQLite database. It retains the
 administrator account, externally-shared-dashboard state when that feature is
@@ -329,9 +331,11 @@ Viewer access to the Grafana workspace: the shared view can run only the
 dashboard's saved queries, while a workspace viewer could explore data more
 broadly.
 
-The public dashboard may include aggregated request rate, status proportions,
-latency percentiles, redirect and creation totals, the active-link count, and
-the service-up signal. It must not include:
+The public dashboard may include aggregated request rate, request counts by
+route template (such as `/{code}`, never the raw path; `/admin/*` routes are
+excluded) and status, latency percentiles, link-operation counts by operation
+and result, database operation durations, redirect, link-miss, and creation
+totals, the active-link count, and the service-up signal. It must not include:
 
 - raw Loki logs;
 - raw paths or live short codes;
