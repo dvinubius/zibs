@@ -1,8 +1,10 @@
 name: Deploy production
 
-# Pushes to main deploy every change since the last verified production
-# deployment. See docs/deployment-runbook.md.
+# Pull requests run tests only. Pushes to main deploy every change since the
+# last verified production deployment. See docs/deployment-runbook.md.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -12,10 +14,10 @@ on:
         type: boolean
         default: true
 
-# One production run at a time, including classification. A newer pending run
-# replaces an older pending one; the manifest makes that safe.
+# One production run at a time, including classification. Pull request tests
+# use their own group so they do not wait for a production deployment.
 concurrency:
-  group: production-deploy
+  group: ${{ github.event_name == 'pull_request' && github.ref || 'production-deploy' }}
   cancel-in-progress: false
 
 permissions:
@@ -48,6 +50,7 @@ jobs:
             docker compose --env-file /dev/null --profile production config --quiet
 
   plan:
+    if: github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-24.04
     environment: production

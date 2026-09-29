@@ -5,6 +5,11 @@ Pushes to `main` on GitHub deploy zibs to the prepared VPS through the
 a published container image from GHCR; it never clones the repository and
 never builds zibs.
 
+Pull requests targeting `main` run the workflow's `test` job, which reports
+the required `test` check. The `plan`, `image`, and `deploy` jobs run only for
+pushes to `main` or manual workflow dispatches; pull request tests do not
+access the production environment.
+
 > [!IMPORTANT]
 > **zibs is not standalone.** Public ingress (Caddy, TLS, the `zibs.app`
 > route) and the `zibs-edge` network are owned by the separate [Hetzner-One](https://github.com/dvinubius/hetzner-one)
