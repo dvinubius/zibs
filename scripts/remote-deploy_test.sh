@@ -67,6 +67,9 @@ make_bundle() {
 	printf 'name: zibs # new\n' >"$bundle/compose.yaml"
 	printf 'new operator\n' >"$bundle/grafana/dashboards/operator.json"
 	printf 'new public\n' >"$bundle/grafana/dashboards/public-metrics.json"
+	for name in traffic-synthetic traffic-suspected-scan traffic-other; do
+		printf 'new %s\n' "$name" >"$bundle/grafana/dashboards/$name.json"
+	done
 	printf 'new prometheus\n' >"$bundle/prometheus.yml"
 	touch "$bundle/loki.yml" "$bundle/config.alloy"
 	cp "$project_dir/scripts/remote-deploy.sh" "$project_dir/scripts/compose.sh" \
@@ -86,6 +89,9 @@ make_live() {
 	printf 'name: zibs # old\n' >"$live/compose.yaml"
 	printf 'old operator\n' >"$live/grafana/dashboards/operator.json"
 	printf 'old public\n' >"$live/grafana/dashboards/public-metrics.json"
+	for name in traffic-synthetic traffic-suspected-scan traffic-other; do
+		printf 'old %s\n' "$name" >"$live/grafana/dashboards/$name.json"
+	done
 	printf 'old prometheus\n' >"$live/prometheus.yml"
 	cp "$bundle/scripts/telemetry-smoke-test.sh" "$live/scripts/"
 	printf 'ADMIN_TOKEN=x\nGRAFANA_ADMIN_PASSWORD=y\n' >"$live/.env"
@@ -225,6 +231,7 @@ test_dashboard_deploy() {
 	deploy dashboard "$commit" >/dev/null
 	grep -q 'new operator' "$live/grafana/dashboards/operator.json" || fail 'operator dashboard not installed'
 	grep -q 'new public' "$live/grafana/dashboards/public-metrics.json" || fail 'public dashboard not installed'
+	grep -q 'new traffic-synthetic' "$live/grafana/dashboards/traffic-synthetic.json" || fail 'synthetic dashboard not installed'
 	grep -q 'old prometheus' "$live/prometheus.yml" || fail 'dashboard deploy touched other configuration'
 	expect_log 'smoke dashboard'
 	refute_log ' up -d'

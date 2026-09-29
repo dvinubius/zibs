@@ -52,7 +52,9 @@ observability=false
 while IFS= read -r path; do
 	[[ -n $path ]] || continue
 	case $path in
-	grafana/dashboards/operator.json | grafana/dashboards/public-metrics.json) dashboard=true ;;
+	grafana/dashboards/operator.json | grafana/dashboards/public-metrics.json | \
+	grafana/dashboards/traffic-synthetic.json | grafana/dashboards/traffic-suspected-scan.json | \
+	grafana/dashboards/traffic-other.json) dashboard=true ;;
 	grafana/* | prometheus.yml | loki.yml | config.alloy) observability=true ;;
 	*)
 		if ! is_non_deployment "$path"; then

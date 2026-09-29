@@ -44,7 +44,7 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 			Name: "zibs_http_requests_total",
 			Help: "Total number of completed HTTP requests.",
 		},
-		[]string{"route", "method", "status"},
+		[]string{"route", "method", "status", "traffic_class"},
 	)
 
 	httpRequestDuration := prometheus.NewHistogramVec(
@@ -53,7 +53,7 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 			Help:    "HTTP request duration in seconds.",
 			Buckets: []float64{0.0005, 0.001, 0.002, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2},
 		},
-		[]string{"route", "method"},
+		[]string{"route", "method", "traffic_class"},
 	)
 
 	httpInFlightRequests := prometheus.NewGauge(
@@ -68,7 +68,7 @@ func newMetrics() (*metrics, *prometheus.Registry, error) {
 			Name: "zibs_link_operations_total",
 			Help: "Total number of link operations.",
 		},
-		[]string{"operation", "result"},
+		[]string{"operation", "result", "traffic_class"},
 	)
 
 	dbOperationDuration := prometheus.NewHistogramVec(

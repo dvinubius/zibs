@@ -125,10 +125,10 @@ and selected `database/sql` pool statistics.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `zibs_http_requests_total` | Counter | `route`, `method`, `status` | Completed application requests |
-| `zibs_http_request_duration_seconds` | Histogram | `route`, `method` | Application request latency |
+| `zibs_http_requests_total` | Counter | `route`, `method`, `status`, `traffic_class` | Completed application requests |
+| `zibs_http_request_duration_seconds` | Histogram | `route`, `method`, `traffic_class` | Application request latency |
 | `zibs_http_in_flight_requests` | Gauge | none | Application requests currently being handled |
-| `zibs_link_operations_total` | Counter | `operation`, `result` | Create, follow, and delete outcomes |
+| `zibs_link_operations_total` | Counter | `operation`, `result`, `traffic_class` | Create, follow, and delete outcomes |
 | `zibs_db_operation_duration_seconds` | Histogram | `operation`, `result` | Database operation duration |
 | `zibs_db_errors_total` | Counter | `operation`, `kind` | Database errors classified as `busy`, `constraint`, or `other` |
 | `zibs_expired_links_deleted_total` | Counter | none | Rows removed by expiry cleanup |
@@ -139,6 +139,32 @@ and selected `database/sql` pool statistics.
 | `zibs_db_idle_connections` | Gauge | none | Idle connections |
 | `zibs_db_wait_count_total` | Counter | none | Pool wait count |
 | `zibs_db_wait_duration_seconds_total` | Counter | none | Total pool wait time |
+
+### Traffic classes
+
+Every completed application request has exactly one `traffic_class` value:
+
+| Value | Rule | Meaning |
+|---|---|---|
+| `synthetic` | User-Agent starts with `zibs-traffic-lab/` | Request marked by the synthetic generator. The marker is attribution, not authentication. |
+| `suspected_scan` | Known probe paths: `.php`, `/wp-`, `/xmlrpc`, or observed POST probes for `/api`, `/graphql`, `/_next`, `/_rsc`, and `/rsc` | Heuristic scanner classification. |
+| `other` | Neither rule matched | Unclassified traffic; it can include people, bots, and health checks. |
+
+The synthetic rule takes precedence when both match. The generator sends its
+User-Agent on token provisioning, link creation, and redirect requests. Raw
+paths and User-Agents are never Prometheus labels. Request logs include only the
+bounded `traffic_class`; paths remain in the private log body. Link-operation
+counters inherit the class of the request that caused them. Database, expiry,
+active-link, process, and host metrics remain global because they cannot be
+attributed reliably to an individual request class.
+
+The original operator dashboard remains the all-traffic view. Private
+synthetic, suspected-scan, and other dashboards filter request and
+link-operation metrics by class. The other dashboard excludes both marked
+synthetic traffic and known probes, but `other` is not a verified-human count.
+Historical metrics and logs from before this class was recorded cannot be
+partitioned retroactively. Keep the scan view alongside the visitor view;
+do not discard probe requests at collection time.
 
 Durations use seconds. HTTP and database-operation histograms start at 0.5 ms
 and include 1 ms, 2 ms, 3 ms, and 5 ms buckets before the wider service-level
@@ -177,7 +203,7 @@ remain out of metric labels.
 
 The production logger writes JSON to standard output. Completed-request records
 include a bounded route, raw path (without its query string), method, status,
-and `duration_ms`; failed requests also have the bounded `error_category`
+`traffic_class`, and `duration_ms`; failed requests also have the bounded `error_category`
 (`client` or `server`). Raw paths retain short codes and scanner probes for
 private operator diagnosis. Logs intentionally do not include query strings,
 bearer tokens, request bodies, or destination URLs.

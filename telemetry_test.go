@@ -32,11 +32,12 @@ func TestLogRequests(t *testing.T) {
 
 	entry := decodeJSONLog(t, logs.Bytes())
 	for field, want := range map[string]any{
-		"msg":    "request completed",
-		"event":  "request_completed",
-		"route":  "/health",
-		"method": http.MethodGet,
-		"status": float64(http.StatusNoContent),
+		"msg":           "request completed",
+		"event":         "request_completed",
+		"route":         "/health",
+		"method":        http.MethodGet,
+		"status":        float64(http.StatusNoContent),
+		"traffic_class": string(trafficOther),
 	} {
 		if got := entry[field]; got != want {
 			t.Errorf("log field %q = %#v, want %#v", field, got, want)
@@ -199,12 +200,12 @@ func TestLogRequestsTracksInFlightRequestsUntilHandlerReturns(t *testing.T) {
 	close(release)
 	<-finished
 	assertGaugeMetric(t, registry, "zibs_http_in_flight_requests", nil, 0)
-	assertCounterMetric(t, registry, "zibs_http_requests_total", map[string]string{"route": "/health", "method": http.MethodGet, "status": "500"}, 1)
+	assertCounterMetric(t, registry, "zibs_http_requests_total", map[string]string{"route": "/health", "method": http.MethodGet, "status": "500", "traffic_class": string(trafficOther)}, 1)
 }
 
 func TestHTTPRequestDurationHistogramUsesSubFiveMillisecondBuckets(t *testing.T) {
 	metrics, registry := newTestMetrics(t)
-	metrics.httpRequestDuration.WithLabelValues("/health", http.MethodGet).Observe(0.0001)
+	metrics.httpRequestDuration.WithLabelValues("/health", http.MethodGet, string(trafficOther)).Observe(0.0001)
 
 	metricFamilies, err := registry.Gather()
 	if err != nil {
@@ -542,7 +543,7 @@ func TestCreateMetrics(t *testing.T) {
 			t.Fatalf("create link: %v", err)
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "create", "result": "success"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "create", "result": "success", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "create", "result": "success"}, 1)
 	})
 
@@ -552,7 +553,7 @@ func TestCreateMetrics(t *testing.T) {
 			t.Fatal("create link error = nil, want database error")
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "create", "result": "error"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "create", "result": "error", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "create", "result": "error"}, 1)
 		assertCounterMetric(t, registry, "zibs_db_errors_total", map[string]string{"operation": "create", "kind": "other"}, 1)
 	})
@@ -615,7 +616,7 @@ func TestFollowMetrics(t *testing.T) {
 			t.Fatalf("follow link: %v", err)
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "follow", "result": "success"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "follow", "result": "success", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "follow", "result": "success"}, 1)
 	})
 
@@ -625,7 +626,7 @@ func TestFollowMetrics(t *testing.T) {
 			t.Fatalf("follow error = %v, want ErrLinkNotFound", err)
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "follow", "result": "not_found"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "follow", "result": "not_found", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "follow", "result": "not_found"}, 1)
 	})
 
@@ -635,7 +636,7 @@ func TestFollowMetrics(t *testing.T) {
 			t.Fatal("follow error = nil, want database error")
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "follow", "result": "error"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "follow", "result": "error", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "follow", "result": "error"}, 1)
 	})
 }
@@ -652,7 +653,7 @@ func TestDeleteMetrics(t *testing.T) {
 			t.Fatalf("delete link: %v", err)
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "delete", "result": "success"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "delete", "result": "success", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "delete", "result": "success"}, 1)
 	})
 
@@ -662,7 +663,7 @@ func TestDeleteMetrics(t *testing.T) {
 			t.Fatalf("delete error = %v, want ErrLinkNotFound", err)
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "delete", "result": "not_found"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "delete", "result": "not_found", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "delete", "result": "not_found"}, 1)
 	})
 
@@ -672,7 +673,7 @@ func TestDeleteMetrics(t *testing.T) {
 			t.Fatal("delete error = nil, want database error")
 		}
 
-		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "delete", "result": "error"}, 1)
+		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{"operation": "delete", "result": "error", "traffic_class": string(trafficOther)}, 1)
 		assertHistogramMetricCount(t, registry, "zibs_db_operation_duration_seconds", map[string]string{"operation": "delete", "result": "error"}, 1)
 	})
 }

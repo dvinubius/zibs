@@ -43,7 +43,7 @@ func createLink(store *linkStore) http.HandlerFunc {
 			return
 		}
 
-		link, err := store.create(destinationURL)
+		link, err := store.createWithTraffic(destinationURL, classifyTraffic(req))
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
@@ -110,7 +110,7 @@ func destinationURLErrorMessage(err error) string {
 func followLink(store *linkStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		code := req.PathValue("code")
-		link, err := store.follow(code)
+		link, err := store.followWithTraffic(code, classifyTraffic(req))
 		if errors.Is(err, ErrLinkNotFound) {
 			http.Error(w, "link not found", http.StatusNotFound)
 			return

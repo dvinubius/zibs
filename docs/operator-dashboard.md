@@ -2,6 +2,18 @@
 
 Use the private **zibs operator overview** dashboard to triage a time range. Start with availability and request behavior, then narrow into database, logs, runtime, and host capacity. See [Observability](observability.md) for access and the full runbook.
 
+The operator overview retains **all** application traffic and includes a
+request-count panel broken down by `traffic_class`. Three additional private
+dashboards in the Zibs folder show the same request and link-operation panels
+for **synthetic activity**, **suspected scans**, and **other activity**.
+The other view excludes classified synthetic requests and known probe paths.
+`other` means unclassified, not verified human; health checks and unrecognized
+bots can remain there. These dashboards omit service, runtime, host, and global
+database panels because those measurements cannot be divided by request class.
+The suspected-scans dashboard also lists the most probed paths in the selected
+period and shows the matching request logs. See [Traffic classes](observability.md#traffic-classes)
+for the exact rules and the historical-data limit.
+
 ## Overview
 
 ![Overview panels](assets/dash-overview.png)

@@ -161,9 +161,13 @@ func generateCreationToken() (string, string, error) {
 }
 
 func (s *linkStore) create(destinationURL string) (link Link, err error) {
+	return s.createWithTraffic(destinationURL, trafficOther)
+}
+
+func (s *linkStore) createWithTraffic(destinationURL string, traffic trafficClass) (link Link, err error) {
 	result := "error"
 	defer func() {
-		s.metrics.linkOperations.WithLabelValues(dbOperationCreate, result).Inc()
+		s.metrics.linkOperations.WithLabelValues(dbOperationCreate, result, string(traffic)).Inc()
 	}()
 
 	for {
@@ -382,9 +386,13 @@ func (s *linkStore) get(code string) (Link, error) {
 }
 
 func (s *linkStore) follow(code string) (Link, error) {
+	return s.followWithTraffic(code, trafficOther)
+}
+
+func (s *linkStore) followWithTraffic(code string, traffic trafficClass) (Link, error) {
 	result := "error"
 	defer func() {
-		s.metrics.linkOperations.WithLabelValues(dbOperationFollow, result).Inc()
+		s.metrics.linkOperations.WithLabelValues(dbOperationFollow, result, string(traffic)).Inc()
 	}()
 
 	var link Link
@@ -463,9 +471,13 @@ func (s *linkStore) activeLinkCount(ctx context.Context) (int, error) {
 }
 
 func (s *linkStore) delete(code string) error {
+	return s.deleteWithTraffic(code, trafficOther)
+}
+
+func (s *linkStore) deleteWithTraffic(code string, traffic trafficClass) error {
 	resultForMetric := "error"
 	defer func() {
-		s.metrics.linkOperations.WithLabelValues(dbOperationDelete, resultForMetric).Inc()
+		s.metrics.linkOperations.WithLabelValues(dbOperationDelete, resultForMetric, string(traffic)).Inc()
 	}()
 
 	started := time.Now()

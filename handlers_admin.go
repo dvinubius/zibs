@@ -27,7 +27,7 @@ func getLinks(store *linkStore) http.HandlerFunc {
 func deleteLinkByCode(store *linkStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		code := req.PathValue("code")
-		err := store.delete(code)
+		err := store.deleteWithTraffic(code, classifyTraffic(req))
 		if errors.Is(err, ErrLinkNotFound) {
 			http.Error(w, "link not found", http.StatusNotFound)
 			return

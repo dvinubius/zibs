@@ -1775,6 +1775,42 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending"
       }
+    },
+    {
+      "id": 107,
+      "title": "Traffic classes",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 92
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 43,
+      "title": "Request count by traffic class",
+      "description": "Completed requests since traffic classification was deployed, partitioned into marked synthetic traffic, known probe patterns, and other unclassified traffic. Earlier requests cannot be classified. Class-specific private dashboards are in the Zibs folder.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 93
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (traffic_class) (increase(zibs_http_requests_total{traffic_class=~\"synthetic|suspected_scan|other\"}[$__rate_interval]))",
+          "legendFormat": "{{traffic_class}}"
+        }
+      ]
     }
   ]
 }

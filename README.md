@@ -31,6 +31,7 @@ The app requires a "zib" token, which you can request by email — personally. E
 Behind the one-page frontend sits a complete, self-hosted production service: a Go application with SQLite persistence, deployed as a hardened container behind a TLS-terminating reverse proxy on a single VM, with scripted deployments, verified database backups, and a **full observability stack** — Prometheus metrics, structured logs shipped through Alloy to Loki, and Grafana dashboards provisioned straight from this repository.
 
 - 📈 **Watch it run** — the [public metrics dashboard](https://zibs.app/public-dashboards/6b58a8bd322f4bbfb06f4b285055028c) shows live request rates, latency percentiles, and redirect totals. It is the deliberately limited public view of the private operator dashboard.
+- 🧭 **Private traffic views** — the operator dashboard shows all requests, with separate dashboards for synthetic activity, suspected scans, and other unclassified activity. See the [operator dashboard guide](docs/operator-dashboard.md).
 - ⭐ **Like what you see?** Star the repo — it helps others find it.
 - 📕 There is a [**Substack article**](https://dvinubius.substack.com/p/zibs-a-link-shortener-designed-to-connect-us) describing this app, and it refers to the **v1 release**. Check out that [specific tree](https://github.com/dvinubius/zibs/tree/28cff4a1bb402486c5fdfde32b6e9a63e95826ca) if you want to explore the project as presented in the article.
 
