@@ -36,6 +36,9 @@ import json
 for path, uid in (
     ("grafana/dashboards/operator.json", "zibs-operator"),
     ("grafana/dashboards/public-metrics.json", "zibs-public-metrics"),
+    ("grafana/dashboards/traffic-synthetic.json", "zibs-traffic-synthetic"),
+    ("grafana/dashboards/traffic-suspected-scan.json", "zibs-traffic-suspected"),
+    ("grafana/dashboards/traffic-other.json", "zibs-traffic-other"),
 ):
     with open(path, encoding="utf-8") as source:
         dashboard = json.load(source)

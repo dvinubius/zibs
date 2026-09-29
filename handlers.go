@@ -141,9 +141,10 @@ func logRequests(logger *slog.Logger, metrics *metrics, next http.Handler) http.
 		}
 
 		route := routeLabel(req)
+		traffic := classifyTraffic(req)
 		// metrics
-		metrics.httpRequests.WithLabelValues(route, req.Method, strconv.Itoa(status)).Inc()
-		metrics.httpRequestDuration.WithLabelValues(route, req.Method).Observe(time.Since(started).Seconds())
+		metrics.httpRequests.WithLabelValues(route, req.Method, strconv.Itoa(status), string(traffic)).Inc()
+		metrics.httpRequestDuration.WithLabelValues(route, req.Method, string(traffic)).Observe(time.Since(started).Seconds())
 
 		attributes := []slog.Attr{
 			slog.String("event", "request_completed"),
@@ -151,6 +152,7 @@ func logRequests(logger *slog.Logger, metrics *metrics, next http.Handler) http.
 			slog.String("path", req.URL.Path),
 			slog.String("method", req.Method),
 			slog.Int("status", status),
+			slog.String("traffic_class", string(traffic)),
 			slog.Int64("duration_ms", time.Since(started).Milliseconds()),
 		}
 		if category := requestErrorCategory(status); category != "" {

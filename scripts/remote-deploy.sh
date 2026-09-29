@@ -26,7 +26,13 @@ state_dir=$live_dir/.deploy
 public_url=${ZIBS_PUBLIC_URL:-https://zibs.app}
 health_attempts=${DEPLOY_HEALTH_ATTEMPTS:-30}
 keep_snapshots=5
-dashboard_paths=(grafana/dashboards/operator.json grafana/dashboards/public-metrics.json)
+dashboard_paths=(
+	grafana/dashboards/operator.json
+	grafana/dashboards/public-metrics.json
+	grafana/dashboards/traffic-synthetic.json
+	grafana/dashboards/traffic-suspected-scan.json
+	grafana/dashboards/traffic-other.json
+)
 observability_entries=(prometheus.yml loki.yml config.alloy grafana)
 live_entries=(compose.yaml "${observability_entries[@]}" scripts)
 

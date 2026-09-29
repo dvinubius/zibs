@@ -32,6 +32,9 @@ write loki.yml
 write config.alloy
 write grafana/dashboards/operator.json
 write grafana/dashboards/public-metrics.json
+write grafana/dashboards/traffic-synthetic.json
+write grafana/dashboards/traffic-suspected-scan.json
+write grafana/dashboards/traffic-other.json
 write grafana/provisioning/dashboards/dashboards.yaml
 write scripts/remote-deploy.sh
 write web/index.html
@@ -153,6 +156,10 @@ write grafana/dashboards/public-metrics.json
 commit >/dev/null
 write main.go
 expect 'cumulative dashboard then app' full "$base" "$(commit)"
+
+case_from_base
+write grafana/dashboards/traffic-synthetic.json
+expect 'new private dashboard is dashboard mode' dashboard "$base" "$(commit)"
 
 case_from_base
 expect 'target equals deployment' none "$base" "$base"

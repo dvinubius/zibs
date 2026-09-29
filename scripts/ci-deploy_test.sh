@@ -31,6 +31,9 @@ cp "$project_dir/scripts/ci-deploy.sh" "$project_dir/scripts/classify-deploy.sh"
 	"$project_dir/scripts/remote-deploy.sh" "$project_dir/scripts/compose.sh" \
 	"$project_dir/scripts/apply-grafana-v2-layout.sh" "$repo/scripts/"
 cp "$project_dir/grafana/dashboards/operator.json" "$project_dir/grafana/dashboards/public-metrics.json" \
+	"$project_dir/grafana/dashboards/traffic-synthetic.json" \
+	"$project_dir/grafana/dashboards/traffic-suspected-scan.json" \
+	"$project_dir/grafana/dashboards/traffic-other.json" \
 	"$repo/grafana/dashboards/"
 touch "$repo/compose.yaml" "$repo/prometheus.yml" "$repo/loki.yml" "$repo/config.alloy" \
 	"$repo/main.go" "$repo/README.md" "$repo/scripts/remote-deploy_test.sh"
@@ -118,7 +121,7 @@ git checkout -q -- grafana
 reset
 GHCR_USER=github-actions GHCR_PULL_TOKEN=secret-token ci deploy full "$head" "$image" >/dev/null
 grep -q '^BUNDLE compose.yaml$' "$ssh_log" || fail 'bundle is missing compose.yaml'
-for entry in prometheus.yml loki.yml config.alloy grafana/dashboards/operator.json grafana/dashboards/public-metrics.json; do
+for entry in prometheus.yml loki.yml config.alloy grafana/dashboards/operator.json grafana/dashboards/public-metrics.json grafana/dashboards/traffic-synthetic.json grafana/dashboards/traffic-suspected-scan.json grafana/dashboards/traffic-other.json; do
 	grep -q "^BUNDLE $entry\$" "$ssh_log" || fail "bundle is missing $entry"
 done
 grep -q '^BUNDLE scripts/remote-deploy.sh$' "$ssh_log" || fail 'bundle is missing the remote deploy script'

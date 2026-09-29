@@ -5,6 +5,11 @@ Pushes to `main` on GitHub deploy zibs to the prepared VPS through the
 a published container image from GHCR; it never clones the repository and
 never builds zibs.
 
+Pull requests targeting `main` run the workflow's `test` job, which reports
+the required `test` check. The `plan`, `image`, and `deploy` jobs run only for
+pushes to `main` or manual workflow dispatches; pull request tests do not
+access the production environment.
+
 > [!IMPORTANT]
 > **zibs is not standalone.** Public ingress (Caddy, TLS, the `zibs.app`
 > route) and the `zibs-edge` network are owned by the separate [Hetzner-One](https://github.com/dvinubius/hetzner-one)
@@ -28,7 +33,7 @@ Caddy.
    | Changed since the last verified deployment | Mode |
    | --- | --- |
    | Only docs, agent notes, `README.md`, `LICENSE`, root `*_test.go`, `scripts/*_test.sh`, `scripts/apply-grafana-v2-layout.sh` | none |
-   | `grafana/dashboards/operator.json` and/or `public-metrics.json` (plus the above) | dashboard |
+   | The five allowlisted dashboard JSON files in `grafana/dashboards/` (plus the above) | dashboard |
    | Other `grafana/` files, `prometheus.yml`, `loki.yml`, `config.alloy` (plus the above) | observability |
    | Dashboards and other observability files together | full |
    | `compose.yaml`, Go code, `web/`, `Dockerfile`, scripts, the workflow, or any unlisted path | full |
@@ -42,7 +47,7 @@ Caddy.
    `ghcr.io/dvinubius/zibs@sha256:…` reference. Only this job can write
    packages.
 4. **Deploy.** Confirms the commit is still the head of `main` (otherwise the
-   run is stale and a newer run will deploy), validates both dashboards,
+   run is stale and a newer run will deploy), validates all five dashboards,
    creates a bundle with `git archive` from that exact commit (`compose.yaml`,
    `prometheus.yml`, `loki.yml`, `config.alloy`, `grafana/`, and the
    operational `scripts/`, without their tests), uploads it to
@@ -64,9 +69,9 @@ of the live `compose.yaml`, telemetry configuration, `grafana/`, `scripts/`,
   deployed; replaces only the telemetry configuration and `grafana/`,
   recreates the telemetry services, and runs the full telemetry smoke test. It
   does not pull or recreate the app.
-- **dashboard**: requires a running Grafana; replaces only the two dashboard
+- **dashboard**: requires a running Grafana; replaces only the five dashboard
   files in place and runs the dashboard smoke test, which checks that Grafana
-  still serves both dashboard UIDs. It runs no Compose `up`.
+  serves all five dashboard UIDs. It runs no Compose `up`.
 
 Only after every check passes does it write the mode-0600 manifest (`commit`,
 `image`, `mode`, `deployed_at`). On a failed check it prints bounded
@@ -80,13 +85,13 @@ Deployment never touches `.env`, the named volumes, Caddy, or Hooklook
 
 ## Change a Grafana dashboard
 
-Edit `grafana/dashboards/operator.json` or `public-metrics.json`; the
+Edit an allowlisted file in `grafana/dashboards/`; the
 top-level `version` need not change. Grafana reprovisions a dashboard whenever
 its file content changes, within one 30-second poll, and overwrites the stored
-copy. The deployment checks only that both dashboards still exist, not that the
-new content was applied. The workflow and `./scripts/ci-deploy.sh validate`
-accept only the Classic dashboard model with UIDs `zibs-operator` and
-`zibs-public-metrics`.
+copy. The deployment checks only that all five dashboards still exist, not that
+the new content was applied. The workflow and `./scripts/ci-deploy.sh validate`
+accept only the Classic dashboard model with the five UIDs declared in that
+validation script.
 
 ### Convert a Grafana V2 layout export
 

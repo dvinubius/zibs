@@ -3,7 +3,7 @@
 # Verify the deployed telemetry path. `full` (the default) checks zibs,
 # Prometheus's zibs and node targets, Loki and Alloy readiness, a fresh zibs
 # log in Loki, and Grafana with its data sources and dashboards. `dashboard`
-# checks only that Grafana is healthy and serves both provisioned dashboards.
+# checks only that Grafana is healthy and serves the provisioned dashboards.
 #
 # Usage: scripts/telemetry-smoke-test.sh [full|dashboard]
 
@@ -83,6 +83,9 @@ grafana_dashboard_exists() {
 check_dashboards() {
 	wait_for 'operator dashboard is provisioned' grafana_dashboard_exists zibs-operator
 	wait_for 'public metrics dashboard is provisioned' grafana_dashboard_exists zibs-public-metrics
+	wait_for 'synthetic traffic dashboard is provisioned' grafana_dashboard_exists zibs-traffic-synthetic
+	wait_for 'suspected scans dashboard is provisioned' grafana_dashboard_exists zibs-traffic-suspected
+	wait_for 'other traffic dashboard is provisioned' grafana_dashboard_exists zibs-traffic-other
 }
 
 wait_for 'Grafana HTTP API is healthy' grafana_is_healthy
