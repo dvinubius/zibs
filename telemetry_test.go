@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -286,6 +287,52 @@ func TestLogRequestsUsesOneRouteLabelForShortCodes(t *testing.T) {
 
 	if got := httpRequestCounterValue(t, registry, "/{code}", http.MethodGet, "302"); got != 2 {
 		t.Errorf("HTTP request counter = %v, want 2", got)
+	}
+}
+
+func TestLogRequestsLabelsHeadLikeGet(t *testing.T) {
+	store := newTestStore(t)
+	link, err := store.create("https://example.com")
+	if err != nil {
+		t.Fatalf("create link: %v", err)
+	}
+
+	testCases := []struct {
+		name       string
+		path       string
+		wantRoute  string
+		wantStatus int
+	}{
+		{name: "frontend", path: "/", wantRoute: "/", wantStatus: http.StatusOK},
+		{name: "health", path: "/health", wantRoute: "/health", wantStatus: http.StatusOK},
+		{name: "static asset", path: "/static/x", wantRoute: "/static", wantStatus: http.StatusNotFound},
+		{name: "short code", path: "/" + link.Code, wantRoute: "/{code}", wantStatus: http.StatusFound},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			metrics, registry := newTestMetrics(t)
+			handler := logRequests(
+				slog.New(slog.NewJSONHandler(&logs, nil)),
+				metrics,
+				newTestHandler(t, store),
+			)
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, tc.path, nil))
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+			if got := decodeJSONLog(t, logs.Bytes())["route"]; got != tc.wantRoute {
+				t.Errorf("log route = %#v, want %q", got, tc.wantRoute)
+			}
+			status := strconv.Itoa(tc.wantStatus)
+			if got := httpRequestCounterValue(t, registry, tc.wantRoute, http.MethodHead, status); got != 1 {
+				t.Errorf("HTTP request counter = %v, want 1", got)
+			}
+		})
 	}
 }
 

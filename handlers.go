@@ -85,20 +85,22 @@ func newHandler(store *linkStore, adminToken string) *http.ServeMux {
 }
 
 func routeLabel(req *http.Request) string {
+	// ServeMux serves HEAD with the GET handler, so label it like GET.
+	get := req.Method == http.MethodGet || req.Method == http.MethodHead
 	switch {
-	case req.Method == http.MethodGet && req.URL.Path == "/":
+	case get && req.URL.Path == "/":
 		return "/"
-	case req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/static/"):
+	case get && strings.HasPrefix(req.URL.Path, "/static/"):
 		return "/static"
-	case req.Method == http.MethodGet && req.URL.Path == "/health":
+	case get && req.URL.Path == "/health":
 		return "/health"
 	case req.Method == http.MethodPost && req.URL.Path == "/links":
 		return "/links"
-	case req.Method == http.MethodGet && req.URL.Path == "/admin/links":
+	case get && req.URL.Path == "/admin/links":
 		return "/admin/links"
 	case req.Method == http.MethodDelete && strings.HasPrefix(req.URL.Path, "/admin/links/"):
 		return "/admin/links/{code}"
-	case (req.Method == http.MethodPost || req.Method == http.MethodGet) && req.URL.Path == "/admin/tokens":
+	case (req.Method == http.MethodPost || get) && req.URL.Path == "/admin/tokens":
 		return "/admin/tokens"
 	case req.Method == http.MethodDelete && strings.HasPrefix(req.URL.Path, "/admin/tokens/"):
 		return "/admin/tokens/{id}"
