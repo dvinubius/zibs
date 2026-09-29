@@ -6,7 +6,7 @@
   "timepicker": {"hidden": true},
   "timezone": "browser",
   "schemaVersion": 41,
-  "version": 5,
+  "version": 1,
   "time": {"from": "now-24h", "to": "now"},
   "annotations": {"list": []},
   "panels": [

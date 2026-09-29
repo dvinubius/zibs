@@ -65,8 +65,8 @@ of the live `compose.yaml`, telemetry configuration, `grafana/`, `scripts/`,
   recreates the telemetry services, and runs the full telemetry smoke test. It
   does not pull or recreate the app.
 - **dashboard**: requires a running Grafana; replaces only the two dashboard
-  files in place and runs the dashboard smoke test, which waits one 30-second
-  provisioning poll. It runs no Compose `up`.
+  files in place and runs the dashboard smoke test, which checks that Grafana
+  still serves both dashboard UIDs. It runs no Compose `up`.
 
 Only after every check passes does it write the mode-0600 manifest (`commit`,
 `image`, `mode`, `deployed_at`). On a failed check it prints bounded
@@ -80,11 +80,13 @@ Deployment never touches `.env`, the named volumes, Caddy, or Hooklook
 
 ## Change a Grafana dashboard
 
-Edit `grafana/dashboards/operator.json` or `public-metrics.json` and increase
-the dashboard's top-level `version`; Grafana does not overwrite a newer
-database dashboard with an equal or older file version. The workflow and
-`./scripts/ci-deploy.sh validate` accept only the Classic dashboard model with
-UIDs `zibs-operator` and `zibs-public-metrics`.
+Edit `grafana/dashboards/operator.json` or `public-metrics.json`; the
+top-level `version` need not change. Grafana reprovisions a dashboard whenever
+its file content changes, within one 30-second poll, and overwrites the stored
+copy. The deployment checks only that both dashboards still exist, not that the
+new content was applied. The workflow and `./scripts/ci-deploy.sh validate`
+accept only the Classic dashboard model with UIDs `zibs-operator` and
+`zibs-public-metrics`.
 
 ### Convert a Grafana V2 layout export
 

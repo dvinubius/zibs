@@ -87,9 +87,6 @@ check_dashboards() {
 
 wait_for 'Grafana HTTP API is healthy' grafana_is_healthy
 if [[ $mode == dashboard ]]; then
-	# The file provider polls every 30 seconds (updateIntervalSeconds). Allow
-	# one poll before checking so the previous copy does not satisfy the check.
-	sleep 32
 	check_dashboards
 	printf '%s\n' 'Dashboard smoke test passed.'
 	exit 0

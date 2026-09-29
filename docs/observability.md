@@ -267,8 +267,9 @@ Prometheus's active `zibs` and `node` targets are up. It then waits for a zibs
 log entry written during the test to reach Loki, checks Grafana's HTTP API and
 its provisioned Prometheus and Loki data sources, and verifies both provisioned
 dashboard UIDs. Dashboard-only deployments run
-`telemetry-smoke-test.sh dashboard`, which checks only Grafana and the two
-dashboards after one provisioning poll. The full mode is an integration check of the complete metrics-and-logs
+`telemetry-smoke-test.sh dashboard`, which checks only that Grafana is healthy
+and serves the two dashboard UIDs; it does not verify that new dashboard
+content was applied. The full mode is an integration check of the complete metrics-and-logs
 path, not merely a container liveness check.
 
 ### Alerting status
