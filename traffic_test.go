@@ -20,9 +20,24 @@ func TestClassifyTraffic(t *testing.T) {
 		{"WordPress admin probe", http.MethodGet, "/wp-admin/install.php", "", trafficSuspectedScan},
 		{"mixed case PHP probe", http.MethodGet, "/foo.PHP", "", trafficSuspectedScan},
 		{"observed framework probe", http.MethodPost, "/graphql", "", trafficSuspectedScan},
-		{"ordinary short link", http.MethodGet, "/abc123", "", trafficOther},
+		{"dotfile probe", http.MethodGet, "/.env", "", trafficSuspectedScan},
+		{"unknown admin path", http.MethodGet, "/admin", "", trafficSuspectedScan},
+		{"crawler file", http.MethodGet, "/robots.txt", "", trafficSuspectedScan},
+		{"unknown single-segment GET", http.MethodGet, "/api", "", trafficSuspectedScan},
+		{"code-length path with a hyphen", http.MethodGet, "/wp-login", "", trafficSuspectedScan},
+		{"too short for a code", http.MethodGet, "/AbCd123", "", trafficSuspectedScan},
+		{"wrong method on a code", http.MethodPut, "/AbCd1234", "", trafficSuspectedScan},
+		{"wrong method on the page", http.MethodPost, "/", "", trafficSuspectedScan},
+		{"wrong method on creation", http.MethodGet, "/links", "", trafficSuspectedScan},
+		{"ordinary short link", http.MethodGet, "/AbCd1234", "", trafficOther},
+		{"HEAD short link", http.MethodHead, "/AbCd1234", "", trafficOther},
+		{"creation page", http.MethodGet, "/", "", trafficOther},
+		{"static asset", http.MethodGet, "/static/app.js", "", trafficOther},
 		{"health request", http.MethodGet, "/health", "", trafficOther},
-		{"ordinary API-like GET", http.MethodGet, "/api", "", trafficOther},
+		{"link creation", http.MethodPost, "/links", "", trafficOther},
+		{"admin link list", http.MethodGet, "/admin/links", "", trafficOther},
+		{"admin link deletion", http.MethodDelete, "/admin/links/AbCd1234", "", trafficOther},
+		{"admin token issue", http.MethodPost, "/admin/tokens", "", trafficOther},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -52,6 +67,8 @@ func TestTrafficClassPartitionsRequestAndLinkMetrics(t *testing.T) {
 		{"/" + link.Code, "zibs-traffic-lab/1.0", http.StatusFound},
 		{"/" + link.Code, "", http.StatusFound},
 		{"/wp-login.php", "", http.StatusNotFound},
+		{"/robots.txt", "", http.StatusNotFound},
+		{"/Zz000000", "", http.StatusNotFound},
 	} {
 		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
 		req.Header.Set("User-Agent", tc.userAgent)
@@ -81,18 +98,23 @@ func TestTrafficClassPartitionsRequestAndLinkMetrics(t *testing.T) {
 		class  trafficClass
 		status string
 		result string
+		count  float64
 	}{
-		{trafficSynthetic, "302", "success"},
-		{trafficOther, "302", "success"},
-		{trafficSuspectedScan, "404", "not_found"},
+		{trafficSynthetic, "302", "success", 1},
+		{trafficOther, "302", "success", 1},
+		{trafficSuspectedScan, "404", "not_found", 2},
 	} {
 		assertCounterMetric(t, registry, "zibs_http_requests_total", map[string]string{
 			"route": "/{code}", "method": "GET", "status": tc.status, "traffic_class": string(tc.class),
-		}, 1)
+		}, tc.count)
 		assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{
 			"operation": "follow", "result": tc.result, "traffic_class": string(tc.class),
-		}, 1)
+		}, tc.count)
 	}
+	// A code-shaped miss stays in "other": it may be an expired or deleted link.
+	assertCounterMetric(t, registry, "zibs_link_operations_total", map[string]string{
+		"operation": "follow", "result": "not_found", "traffic_class": string(trafficOther),
+	}, 1)
 	for _, class := range []trafficClass{trafficSynthetic, trafficOther, trafficSuspectedScan} {
 		if !strings.Contains(logs.String(), `"traffic_class":"`+string(class)+`"`) {
 			t.Errorf("request logs omit traffic class %q", class)

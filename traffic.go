@@ -16,22 +16,35 @@ const (
 const syntheticUserAgentPrefix = "zibs-traffic-lab/"
 
 // classifyTraffic partitions requests for telemetry. The user-agent marker is
-// an attribution hint, not authentication. "other" means unclassified traffic,
-// not a verified human visitor.
+// an attribution hint, not authentication. A request that is neither an
+// application route nor a possible short-link follow cannot be ordinary use,
+// so probes, crawler files, and wrong methods are all suspected scans.
+// "other" means unclassified traffic, not a verified human visitor.
 func classifyTraffic(req *http.Request) trafficClass {
 	if strings.HasPrefix(req.UserAgent(), syntheticUserAgentPrefix) {
 		return trafficSynthetic
 	}
-	path := strings.ToLower(req.URL.Path)
-	if strings.Contains(path, ".php") || strings.HasPrefix(path, "/wp-") ||
-		path == "/xmlrpc" || path == "/xmlrpc/" {
-		return trafficSuspectedScan
+	if routeLabel(req) != "/{code}" {
+		return trafficOther
 	}
-	if req.Method == http.MethodPost {
-		switch path {
-		case "/api", "/graphql", "/_next", "/_rsc", "/rsc":
-			return trafficSuspectedScan
+	get := req.Method == http.MethodGet || req.Method == http.MethodHead
+	if get && isShortCodePath(req.URL.Path) {
+		return trafficOther
+	}
+	return trafficSuspectedScan
+}
+
+// isShortCodePath reports whether path could name a link. Every code ever
+// issued has shortCodeLength characters from shortCodeAlphabet.
+func isShortCodePath(path string) bool {
+	code, ok := strings.CutPrefix(path, "/")
+	if !ok || len(code) != shortCodeLength {
+		return false
+	}
+	for _, c := range code {
+		if !strings.ContainsRune(shortCodeAlphabet, c) {
+			return false
 		}
 	}
-	return trafficOther
+	return true
 }
