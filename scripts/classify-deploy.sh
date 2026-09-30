@@ -41,8 +41,8 @@ is_non_deployment() {
 	docs/* | .agents/* | .claude/* | .codex/* | .vscode/*) return 0 ;;
 	README.md | AGENTS.md | CLAUDE.md | .devnotes.md | LICENSE | .gitignore) return 0 ;;
 	scripts/*_test.sh | scripts/apply-grafana-v2-layout.sh) return 0 ;;
-	*/*) return 1 ;;
-	*_test.go) return 0 ;;
+	cmd/zibs/*/*) return 1 ;;
+	cmd/zibs/*_test.go) return 0 ;;
 	esac
 	return 1
 }

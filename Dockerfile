@@ -6,9 +6,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY *.go ./
-COPY web ./web
-RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/zibs .
+COPY cmd ./cmd
+RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/zibs ./cmd/zibs
 
 FROM debian:bookworm-slim
 

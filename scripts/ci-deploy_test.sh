@@ -9,7 +9,7 @@ trap 'rm -rf "$temporary_dir"' EXIT
 bin=$temporary_dir/bin
 repo=$temporary_dir/repo
 ssh_log=$temporary_dir/ssh.log
-mkdir -p "$bin" "$repo/scripts" "$repo/grafana/dashboards"
+mkdir -p "$bin" "$repo/scripts" "$repo/grafana/dashboards" "$repo/cmd/zibs"
 
 # The mock records arguments and stdin; an uploaded bundle is listed instead.
 cat >"$bin/ssh" <<'EOF'
@@ -36,7 +36,7 @@ cp "$project_dir/grafana/dashboards/operator.json" "$project_dir/grafana/dashboa
 	"$project_dir/grafana/dashboards/traffic-other.json" \
 	"$repo/grafana/dashboards/"
 touch "$repo/compose.yaml" "$repo/prometheus.yml" "$repo/loki.yml" "$repo/config.alloy" \
-	"$repo/main.go" "$repo/README.md" "$repo/scripts/remote-deploy_test.sh"
+	"$repo/cmd/zibs/main.go" "$repo/README.md" "$repo/scripts/remote-deploy_test.sh"
 printf 'key\n' >"$temporary_dir/key"
 printf 'host key\n' >"$temporary_dir/known_hosts"
 
@@ -125,7 +125,7 @@ for entry in prometheus.yml loki.yml config.alloy grafana/dashboards/operator.js
 	grep -q "^BUNDLE $entry\$" "$ssh_log" || fail "bundle is missing $entry"
 done
 grep -q '^BUNDLE scripts/remote-deploy.sh$' "$ssh_log" || fail 'bundle is missing the remote deploy script'
-! grep -qE '^BUNDLE (main\.go|README\.md|scripts/.*_test\.sh|scripts/ci-deploy\.sh|scripts/classify-deploy\.sh|scripts/apply-grafana-v2-layout\.sh)$' "$ssh_log" ||
+! grep -qE '^BUNDLE (cmd/.*|README\.md|scripts/.*_test\.sh|scripts/ci-deploy\.sh|scripts/classify-deploy\.sh|scripts/apply-grafana-v2-layout\.sh)$' "$ssh_log" ||
 	fail 'bundle contains files the VPS does not need'
 grep -q "umask 022 && rm -rf" "$ssh_log" || fail 'bundle extraction does not force a world-readable umask'
 grep -q "remote-deploy.sh' full $head $image" "$ssh_log" || fail 'full deployment did not pass the exact image digest'

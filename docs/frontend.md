@@ -12,7 +12,7 @@ Buttons, the form card, inputs, the result terminal, the About dialog, and the c
 
 ## Delivery
 
-The page and its assets are embedded in the Go binary from `web/`:
+The page and its assets are embedded in the Go binary from `cmd/zibs/web/`:
 
 - `GET /` serves the creation page;
 - `GET /static/{file}` serves its CSS, JavaScript, fonts, and favicon.

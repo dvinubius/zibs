@@ -275,7 +275,8 @@ test_invalid_arguments_make_no_docker_call() {
 
 test_unexpected_bundle_entry_is_rejected() {
 	make_bundle
-	touch "$bundle/main.go"
+	mkdir -p "$bundle/cmd/zibs"
+	touch "$bundle/cmd/zibs/main.go"
 	make_live
 	deploy dashboard "$commit" >/dev/null 2>&1 && fail 'accepted a bundle containing source'
 	grep -q 'old operator' "$live/grafana/dashboards/operator.json" || fail 'rejected bundle changed files'

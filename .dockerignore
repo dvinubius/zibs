@@ -10,5 +10,5 @@ data
 .env
 .env.*
 README.md
-*_test.go
+**/*_test.go
 .devnotes.md

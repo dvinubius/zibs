@@ -23,7 +23,7 @@ commit() {
 	git rev-parse HEAD
 }
 
-write main.go
+write cmd/zibs/main.go
 write compose.yaml
 write README.md
 write docs/runbook.md
@@ -37,7 +37,7 @@ write grafana/dashboards/traffic-suspected-scan.json
 write grafana/dashboards/traffic-other.json
 write grafana/provisioning/dashboards/dashboards.yaml
 write scripts/remote-deploy.sh
-write web/index.html
+write cmd/zibs/web/index.html
 base=$(commit)
 
 failures=0
@@ -59,7 +59,7 @@ case_from_base
 write README.md
 write docs/runbook.md
 write .agents/PROGRESS.md
-write main_test.go
+write cmd/zibs/main_test.go
 write scripts/remote-deploy_test.sh
 write scripts/apply-grafana-v2-layout.sh
 write LICENSE
@@ -103,7 +103,7 @@ write grafana/dashboards/operator.json
 expect 'compose wins over dashboard' full "$base" "$(commit)"
 
 case_from_base
-write main.go
+write cmd/zibs/main.go
 expect 'application change' full "$base" "$(commit)"
 
 case_from_base
@@ -111,7 +111,7 @@ write scripts/remote-deploy.sh
 expect 'deployment script change' full "$base" "$(commit)"
 
 case_from_base
-write web/index.html
+write cmd/zibs/web/index.html
 expect 'frontend change' full "$base" "$(commit)"
 
 case_from_base
@@ -125,14 +125,16 @@ expect 'unknown path' full "$base" "$(commit)"
 case_from_base
 write docs/nested/main_test.go
 write nested/main_test.go
-expect 'test outside the root package is not assumed harmless' full "$base" "$(commit)"
+write main_test.go
+write cmd/zibs/web/main_test.go
+expect 'test outside the application package is not assumed harmless' full "$base" "$(commit)"
 
 case_from_base
 git rm -q loki.yml
 expect 'deleted observability file' observability "$base" "$(commit)"
 
 case_from_base
-git rm -q main.go
+git rm -q cmd/zibs/main.go
 expect 'deleted application file' full "$base" "$(commit)"
 
 case_from_base
@@ -154,7 +156,7 @@ expect 'cumulative after failed dashboard deploy' dashboard "$base" "$(commit)"
 case_from_base
 write grafana/dashboards/public-metrics.json
 commit >/dev/null
-write main.go
+write cmd/zibs/main.go
 expect 'cumulative dashboard then app' full "$base" "$(commit)"
 
 case_from_base

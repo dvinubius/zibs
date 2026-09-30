@@ -88,11 +88,12 @@ and [observability](docs/observability.md).
 
 ## Working locally
 
-Install Go 1.25.0 or newer. Set a development-only admin token and start the
-service directly:
+Install Go 1.25.0 or newer. The service's Go source and embedded frontend live
+in `cmd/zibs/`. From the repository root, set a development-only admin token
+and start the service directly:
 
 ```bash
-ADMIN_TOKEN=development-only-token go run .
+ADMIN_TOKEN=development-only-token go run ./cmd/zibs
 ```
 
 Open `http://localhost:8080`. The service creates `zibs.db` in the working

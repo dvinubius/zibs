@@ -79,11 +79,11 @@ the live `.env` before the snapshot.
 
    | Changed since the last verified deployment | Mode |
    | --- | --- |
-   | Only docs, agent notes, `README.md`, `LICENSE`, root `*_test.go`, `scripts/*_test.sh`, `scripts/apply-grafana-v2-layout.sh` | none |
+   | Only docs, agent notes, `README.md`, `LICENSE`, `cmd/zibs/*_test.go`, `scripts/*_test.sh`, `scripts/apply-grafana-v2-layout.sh` | none |
    | The five allowlisted dashboard JSON files in `grafana/dashboards/` (plus the above) | dashboard |
    | Other `grafana/` files, `prometheus.yml`, `loki.yml`, `config.alloy` (plus the above) | observability |
    | Dashboards and other observability files together | full |
-   | `compose.yaml`, Go code, `web/`, `Dockerfile`, scripts, the workflow, or any unlisted path | full |
+   | `compose.yaml`, Go code, `cmd/zibs/web/`, `Dockerfile`, scripts, the workflow, or any unlisted path | full |
    | No manifest, or its commit is not an ancestor | full |
 
    If SSH or Git inspection fails, the run stops without changing production.
